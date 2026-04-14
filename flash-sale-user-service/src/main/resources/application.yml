@@ -6,7 +6,7 @@ spring:
     name: flash-sale-user-service
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/flash_sale?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3307}/flash_sale?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:flashsale}
     password: ${MYSQL_PASSWORD:flashsale123}
   cloud:
@@ -37,4 +37,5 @@ mybatis-plus:
 
 flash-sale:
   security:
-    jwt-secret: ${FLASH_SALE_JWT_SECRET:replace-with-a-32-char-secret}
+    jwt-secret: ${FLASH_SALE_JWT_SECRET:flash-sale-jwt-secret-key-2026-dev}
+    access-token-ttl: ${FLASH_SALE_JWT_TTL:2h}

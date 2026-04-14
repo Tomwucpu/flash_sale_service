@@ -1,0 +1,4 @@
+flash-sale:
+  security:
+    jwt-secret: 0123456789abcdef0123456789abcdef
+    access-token-ttl: 2h

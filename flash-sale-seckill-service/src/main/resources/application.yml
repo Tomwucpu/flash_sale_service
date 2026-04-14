@@ -1,0 +1,42 @@
+server:
+  port: ${APP_PORT:9003}
+
+spring:
+  application:
+    name: flash-sale-seckill-service
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 1
+      timeout: 5s
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:flashsale}
+    password: ${RABBITMQ_PASSWORD:flashsale123}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+  jackson:
+    time-zone: Asia/Shanghai
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  file:
+    name: logs/${spring.application.name}.log
+  pattern:
+    level: "%5p [${spring.application.name:unknown},%X{requestId:-}]"
+
+flash-sale:
+  mq:
+    exchange: flash.sale.event.exchange

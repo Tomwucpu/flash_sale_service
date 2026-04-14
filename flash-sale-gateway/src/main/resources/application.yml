@@ -1,0 +1,57 @@
+server:
+  port: ${APP_PORT:8080}
+
+spring:
+  application:
+    name: flash-sale-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: flash-sale-user-service
+          uri: lb://flash-sale-user-service
+          predicates:
+            - Path=/api/users/**
+        - id: flash-sale-activity-service
+          uri: lb://flash-sale-activity-service
+          predicates:
+            - Path=/api/activities/**
+        - id: flash-sale-seckill-service
+          uri: lb://flash-sale-seckill-service
+          predicates:
+            - Path=/api/seckill/**
+        - id: flash-sale-order-service
+          uri: lb://flash-sale-order-service
+          predicates:
+            - Path=/api/orders/**,/api/codes/**,/api/exports/**
+        - id: flash-sale-payment-service
+          uri: lb://flash-sale-payment-service
+          predicates:
+            - Path=/api/payments/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  file:
+    name: logs/${spring.application.name}.log
+  pattern:
+    level: "%5p [${spring.application.name:unknown},%X{requestId:-}]"
+
+flash-sale:
+  security:
+    jwt-secret: ${FLASH_SALE_JWT_SECRET:replace-with-a-32-char-secret}

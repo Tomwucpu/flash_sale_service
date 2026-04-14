@@ -1,0 +1,67 @@
+name: flash-sale-local
+
+services:
+  mysql:
+    image: mysql:8.0.36
+    container_name: flash-sale-mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-flashsale_root}
+      MYSQL_DATABASE: flash_sale
+      MYSQL_USER: ${MYSQL_USERNAME:-flashsale}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-flashsale123}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-flashsale_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: flash-sale-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: flash-sale-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-flashsale}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-flashsale123}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: flash-sale-nacos
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+      JVM_XMS: 256m
+      JVM_XMX: 256m
+      JVM_XMN: 128m
+    ports:
+      - "8848:8848"
+    volumes:
+      - nacos-logs:/home/nacos/logs
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  nacos-logs:

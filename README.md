@@ -86,6 +86,8 @@ flash_sale_service/
    mvn -q -DskipTests package
    ```
 
+单独启动某个微服务时，服务会自动尝试导入模块目录和仓库根目录下的 `.env`，因此直接在对应模块下执行 `mvn spring-boot:run` 或从 IDE 启动即可复用本地联调配置。
+
 ## 默认联调账号
 
 数据库首次初始化后会自动写入以下用户，默认密码统一为 `FlashSale@123`：

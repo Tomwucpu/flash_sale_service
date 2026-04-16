@@ -69,6 +69,20 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void preflightRequestBypassesAuthorizationCheck() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.options("/api/activities").build()
+        );
+        AtomicBoolean chainInvoked = new AtomicBoolean(false);
+
+        filter.filter(exchange, successChain(chainInvoked, new AtomicReference<>()))
+                .block();
+
+        assertTrue(chainInvoked.get());
+        assertEquals(HttpStatus.OK, exchange.getResponse().getStatusCode());
+    }
+
+    @Test
     void validTokenAddsCanonicalHeadersBeforeForwarding() {
         String token = tokenService.generateToken(new UserContext(9001L, "gateway-user", "ADMIN"));
         MockServerWebExchange exchange = MockServerWebExchange.from(

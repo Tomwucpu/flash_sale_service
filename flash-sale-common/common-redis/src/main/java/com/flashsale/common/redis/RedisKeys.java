@@ -24,4 +24,8 @@ public final class RedisKeys {
     public static String activityDetail(Long activityId) {
         return "activity:detail:" + activityId;
     }
+
+    public static String activityVisibleList() {
+        return "activity:visible:list";
+    }
 }

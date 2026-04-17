@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -206,6 +207,49 @@ class ActivityAdminControllerTest {
     }
 
     @Test
+    void deleteDraftActivityMarksDeletedAndClearsCache() throws Exception {
+        Long activityId = insertActivity("待删除草稿活动", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(5), nowPlusMinutes(10), nowPlusMinutes(40), 15, BigDecimal.ZERO, false);
+
+        mockMvc.perform(admin(delete("/api/activities/{activityId}", activityId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        assertThat(queryDeletedFlag(activityId)).isEqualTo(1);
+        verify(stringRedisTemplate, times(1)).delete(RedisKeys.seckillStock(activityId));
+        verify(stringRedisTemplate, times(1)).delete(RedisKeys.activityDetail(activityId));
+        verify(zSetOperations, times(1))
+                .remove(RedisKeys.activityVisibleList(), String.valueOf(activityId));
+    }
+
+    @Test
+    void deleteOfflineActivityRemovesItFromList() throws Exception {
+        Long activityId = insertActivity("待删除下线活动", "SYSTEM_GENERATED", "IMMEDIATE", "OFFLINE",
+                nowMinusMinutes(10), nowMinusMinutes(5), nowPlusMinutes(10), 20, BigDecimal.ZERO, false);
+
+        mockMvc.perform(admin(delete("/api/activities/{activityId}", activityId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        assertThat(queryDeletedFlag(activityId)).isEqualTo(1);
+
+        mockMvc.perform(admin(get("/api/activities")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void deletePublishedActivityIsRejected() throws Exception {
+        Long activityId = insertActivity("不可删除已发布活动", "SYSTEM_GENERATED", "IMMEDIATE", "PUBLISHED",
+                nowMinusMinutes(5), nowPlusMinutes(10), nowPlusMinutes(40), 25, BigDecimal.ZERO, false);
+
+        mockMvc.perform(admin(delete("/api/activities/{activityId}", activityId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("仅未发布或已下线活动允许删除"));
+    }
+
+    @Test
     void publishRejectsThirdPartyActivityWhenAvailableCodesAreInsufficient() throws Exception {
         Long activityId = insertActivity("第三方码活动", "THIRD_PARTY_IMPORTED", "IMMEDIATE", "UNPUBLISHED",
                 nowPlusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 2, BigDecimal.ZERO, false);
@@ -294,6 +338,14 @@ class ActivityAdminControllerTest {
         return jdbcTemplate.queryForObject(
                 "select publish_status from activity_product where id = ?",
                 String.class,
+                activityId
+        );
+    }
+
+    private Integer queryDeletedFlag(Long activityId) {
+        return jdbcTemplate.queryForObject(
+                "select is_deleted from activity_product where id = ?",
+                Integer.class,
                 activityId
         );
     }

@@ -2,12 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Eye, Megaphone, PenSquare, Plus, SquareArrowOutUpRight } from 'lucide-vue-next'
+import { Eye, Megaphone, PenSquare, Plus, SquareArrowOutUpRight, Trash2 } from 'lucide-vue-next'
 import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { formatDisplayDateTime } from '@/utils/date'
-import { getPhaseLabel, getPublishStatusLabel, isEditableActivity } from '@/utils/activity'
+import { getPhaseLabel, getPublishStatusLabel, isDeletableActivity, isEditableActivity } from '@/utils/activity'
 import type { ActivitySummary } from '@/types'
 
 const router = useRouter()
@@ -19,6 +19,7 @@ const summary = computed(() => ({
   draft: activities.value.filter((item) => item.publishStatus === 'UNPUBLISHED').length,
   live: activities.value.filter((item) => item.publishStatus === 'PUBLISHED').length,
 }))
+const hasActivities = computed(() => activities.value.length > 0)
 
 async function loadActivities() {
   loading.value = true
@@ -49,6 +50,16 @@ async function handleOffline(activityId: number) {
   })
   await activityApi.offline(activityId)
   ElMessage.success('活动已下线')
+  await loadActivities()
+}
+
+async function handleDelete(activityId: number) {
+  await ElMessageBox.confirm('删除会将活动标记为已删除，并同步清理活动缓存。继续吗？', '删除活动', {
+    type: 'warning',
+    confirmButtonText: '确认删除',
+  })
+  await activityApi.delete(activityId)
+  ElMessage.success('活动已删除')
   await loadActivities()
 }
 
@@ -91,94 +102,115 @@ onMounted(loadActivities)
         </button>
       </div>
 
-      <el-table v-loading="loading" :data="activities" row-key="id">
-        <el-table-column prop="title" label="活动信息" min-width="220">
-          <template #default="{ row }">
-            <div class="cell-stack">
-              <strong>{{ row.title }}</strong>
-              <span>ID #{{ row.id }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="库存" width="140">
-          <template #default="{ row }">
-            <div class="cell-stack">
-              <strong>{{ row.availableStock }} / {{ row.totalStock }}</strong>
-              <span>可用 / 总量</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="发布配置" min-width="220">
-          <template #default="{ row }">
-            <div class="cell-stack">
-              <strong>{{ row.publishMode }}</strong>
-              <span>{{ formatDisplayDateTime(row.publishTime) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="220">
-          <template #default="{ row }">
-            <div class="badge-stack">
-              <StatusBadge
-                :label="getPublishStatusLabel(row.publishStatus)"
-                :tone="row.publishStatus === 'PUBLISHED' ? 'green' : row.publishStatus === 'OFFLINE' ? 'slate' : 'amber'"
-              />
-              <StatusBadge
-                :label="getPhaseLabel(row.phase)"
-                :tone="row.phase === 'ONGOING' ? 'blue' : row.phase === 'PREVIEW' ? 'amber' : 'slate'"
-              />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="时间窗" min-width="210">
-          <template #default="{ row }">
-            <div class="cell-stack">
-              <strong>{{ formatDisplayDateTime(row.startTime) }}</strong>
-              <span>至 {{ formatDisplayDateTime(row.endTime) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" min-width="280" fixed="right">
-          <template #default="{ row }">
-            <div class="action-cell">
-              <button class="flat-button flat-button--ghost action-button" type="button" @click="router.push(`/admin/activities/${row.id}`)">
-                <Eye :size="16" />
-                查看
-              </button>
-              <button
-                class="flat-button flat-button--secondary action-button"
-                type="button"
-                :disabled="!isEditableActivity(row)"
-                @click="router.push(`/admin/activities/${row.id}/edit`)"
-              >
-                <PenSquare :size="16" />
-                编辑
-              </button>
-              <button
-                class="flat-button action-button"
-                type="button"
-                :disabled="row.publishStatus !== 'UNPUBLISHED'"
-                @click="handlePublish(row.id)"
-              >
-                <Megaphone :size="16" />
-                发布
-              </button>
-              <button
-                class="flat-button flat-button--ghost action-button"
-                type="button"
-                :disabled="row.publishStatus === 'OFFLINE'"
-                @click="handleOffline(row.id)"
-              >
-                <SquareArrowOutUpRight :size="16" />
-                下线
-              </button>
-              <span class="action-hint">
-                {{ isEditableActivity(row) ? '未发布状态可编辑' : '已发布或已下线，仅支持查看和下线' }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-loading="loading">
+        <el-table v-if="hasActivities" :data="activities" row-key="id">
+          <el-table-column prop="title" label="活动信息" min-width="220">
+            <template #default="{ row }">
+              <div class="cell-stack">
+                <strong>{{ row.title }}</strong>
+                <span>ID #{{ row.id }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="库存" width="140">
+            <template #default="{ row }">
+              <div class="cell-stack">
+                <strong>{{ row.availableStock }} / {{ row.totalStock }}</strong>
+                <span>可用 / 总量</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="发布配置" min-width="220">
+            <template #default="{ row }">
+              <div class="cell-stack">
+                <strong>{{ row.publishMode }}</strong>
+                <span>{{ formatDisplayDateTime(row.publishTime) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="220">
+            <template #default="{ row }">
+              <div class="badge-stack">
+                <StatusBadge
+                  :label="getPublishStatusLabel(row.publishStatus)"
+                  :tone="row.publishStatus === 'PUBLISHED' ? 'green' : row.publishStatus === 'OFFLINE' ? 'slate' : 'amber'"
+                />
+                <StatusBadge
+                  :label="getPhaseLabel(row.phase)"
+                  :tone="row.phase === 'ONGOING' ? 'blue' : row.phase === 'PREVIEW' ? 'amber' : 'slate'"
+                />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="时间窗" min-width="210">
+            <template #default="{ row }">
+              <div class="cell-stack">
+                <strong>{{ formatDisplayDateTime(row.startTime) }}</strong>
+                <span>至 {{ formatDisplayDateTime(row.endTime) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" min-width="280" fixed="right">
+            <template #default="{ row }">
+              <div class="action-cell">
+                <button class="flat-button flat-button--ghost action-button" type="button" @click="router.push(`/admin/activities/${row.id}`)">
+                  <Eye :size="16" />
+                  查看
+                </button>
+                <button
+                  class="flat-button flat-button--secondary action-button"
+                  type="button"
+                  :disabled="!isEditableActivity(row)"
+                  @click="router.push(`/admin/activities/${row.id}/edit`)"
+                >
+                  <PenSquare :size="16" />
+                  编辑
+                </button>
+                <button
+                  class="flat-button action-button"
+                  type="button"
+                  :disabled="row.publishStatus !== 'UNPUBLISHED'"
+                  @click="handlePublish(row.id)"
+                >
+                  <Megaphone :size="16" />
+                  发布
+                </button>
+                <button
+                  class="flat-button flat-button--ghost action-button"
+                  type="button"
+                  :disabled="row.publishStatus === 'OFFLINE'"
+                  @click="handleOffline(row.id)"
+                >
+                  <SquareArrowOutUpRight :size="16" />
+                  下线
+                </button>
+                <button
+                  class="flat-button flat-button--ghost action-button"
+                  type="button"
+                  :disabled="!isDeletableActivity(row)"
+                  @click="handleDelete(row.id)"
+                >
+                  <Trash2 :size="16" />
+                  删除
+                </button>
+                <span class="action-hint">
+                  {{
+                    isEditableActivity(row)
+                      ? '未发布状态可编辑，也可直接删除'
+                      : isDeletableActivity(row)
+                        ? '已下线活动可查看、下线和删除'
+                        : '已发布活动仅支持查看和下线'
+                  }}
+                </span>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-else class="empty-state" data-testid="activity-empty-state">
+          <strong>当前还没有活动</strong>
+          <p>先创建第一场活动，列表会在这里展示状态、时间窗和发布操作。</p>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -227,6 +259,26 @@ onMounted(loadActivities)
 .action-button {
   min-height: 42px;
   padding: 0.55rem 0.8rem;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  padding: 1.5rem;
+  border: 2px dashed var(--border);
+  background: var(--muted);
+}
+
+.empty-state strong {
+  font-size: 1.1rem;
+}
+
+.empty-state p {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--fg-soft);
+  line-height: 1.6;
 }
 
 @media (max-width: 960px) {

@@ -81,4 +81,11 @@ export const http = {
       data,
     })
   },
+  delete<T>(url: string, config?: AxiosRequestConfig) {
+    return request<T>({
+      ...config,
+      method: 'DELETE',
+      url,
+    })
+  },
 }

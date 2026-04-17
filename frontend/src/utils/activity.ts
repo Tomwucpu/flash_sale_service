@@ -38,3 +38,7 @@ export function getPhaseLabel(phase: ActivityPhase) {
 export function isEditableActivity(activity: Pick<ActivitySummary, 'publishStatus'>) {
   return activity.publishStatus === 'UNPUBLISHED'
 }
+
+export function isDeletableActivity(activity: Pick<ActivitySummary, 'publishStatus'>) {
+  return activity.publishStatus === 'UNPUBLISHED' || activity.publishStatus === 'OFFLINE'
+}

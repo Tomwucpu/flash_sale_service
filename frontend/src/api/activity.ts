@@ -20,4 +20,7 @@ export const activityApi = {
   offline(activityId: number) {
     return http.post<ActivityDetail>(`/api/activities/${activityId}/offline`)
   },
+  delete(activityId: number) {
+    return http.delete<void>(`/api/activities/${activityId}`)
+  },
 }

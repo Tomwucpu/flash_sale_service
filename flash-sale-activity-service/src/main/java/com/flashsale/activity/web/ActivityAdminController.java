@@ -10,6 +10,7 @@ import com.flashsale.common.security.auth.RequireRole;
 import com.flashsale.common.security.context.UserContextHolder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -94,6 +95,16 @@ public class ActivityAdminController {
                 requestId(httpServletRequest),
                 activityService.offline(activityId, UserContextHolder.get())
         );
+    }
+
+    @DeleteMapping("/{activityId}")
+    @RequireRole({"ADMIN", "PUBLISHER"})
+    public ApiResponse<Void> delete(
+            @PathVariable Long activityId,
+            HttpServletRequest httpServletRequest
+    ) {
+        activityService.delete(activityId, UserContextHolder.get());
+        return ApiResponse.success(requestId(httpServletRequest), null);
     }
 
     private String requestId(HttpServletRequest httpServletRequest) {

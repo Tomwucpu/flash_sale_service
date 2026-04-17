@@ -132,6 +132,20 @@ public class ActivityService {
     }
 
     @Transactional
+    public void delete(Long activityId, UserContext userContext) {
+        ActivityEntity activity = getRequiredActivity(activityId);
+        if (!PublishStatus.UNPUBLISHED.name().equals(activity.getPublishStatus())
+                && !PublishStatus.OFFLINE.name().equals(activity.getPublishStatus())) {
+            throw new IllegalArgumentException("仅未发布或已下线活动允许删除");
+        }
+
+        activity.setIsDeleted(1);
+        activity.setUpdatedBy(operatorId(userContext));
+        activityMapper.updateById(activity);
+        activityCacheService.clear(activity);
+    }
+
+    @Transactional
     public void publishReadyActivities() {
         List<ActivityEntity> activities = activityMapper.selectList(
                 new LambdaQueryWrapper<ActivityEntity>()

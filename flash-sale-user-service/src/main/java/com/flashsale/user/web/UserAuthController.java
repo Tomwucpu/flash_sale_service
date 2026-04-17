@@ -49,6 +49,7 @@ public class UserAuthController {
         return ApiResponse.success(requestId(httpServletRequest), userAuthService.login(request));
     }
 
+    // 获取当前登录用户信息
     @GetMapping("/me")
     public ApiResponse<UserProfileResponse> me(HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
@@ -57,6 +58,7 @@ public class UserAuthController {
         );
     }
 
+    // 根据 userId 查询用户信息
     @RequireRole({"ADMIN", "PUBLISHER"})
     @GetMapping("/{userId}")
     public ApiResponse<UserProfileResponse> getUserById(
@@ -66,6 +68,7 @@ public class UserAuthController {
         return ApiResponse.success(requestId(httpServletRequest), userQueryService.getUserById(userId));
     }
 
+    // 从请求头中获取 X-Request-Id
     private String requestId(HttpServletRequest httpServletRequest) {
         return httpServletRequest.getHeader(REQUEST_ID_HEADER);
     }

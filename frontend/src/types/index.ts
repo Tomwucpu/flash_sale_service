@@ -31,6 +31,12 @@ export type CodeSourceMode = 'SYSTEM_GENERATED' | 'THIRD_PARTY_IMPORTED'
 export type PublishMode = 'IMMEDIATE' | 'SCHEDULED'
 export type PublishStatus = 'UNPUBLISHED' | 'PUBLISHED' | 'OFFLINE'
 export type ActivityPhase = 'PREVIEW' | 'ONGOING' | 'ENDED'
+export type RedeemCodeImportFailureReason =
+  | 'EMPTY_CODE'
+  | 'INVALID_FORMAT'
+  | 'DUPLICATE_IN_FILE'
+  | 'DUPLICATE_IN_SYSTEM'
+  | (string & {})
 
 export interface ActivitySummary {
   id: number
@@ -85,4 +91,22 @@ export interface ActivityFormPayload {
   publishTime: string
   startTime: string
   endTime: string
+}
+
+export interface RedeemCodeImportFailure {
+  lineNumber: number
+  rawCode: string
+  reason: RedeemCodeImportFailureReason
+}
+
+export interface RedeemCodeImportBatchSummary {
+  batchNo: string
+  fileName: string
+  totalCount: number
+  successCount: number
+  failedCount: number
+}
+
+export interface RedeemCodeImportBatchDetail extends RedeemCodeImportBatchSummary {
+  failures: RedeemCodeImportFailure[]
 }

@@ -7,7 +7,7 @@ import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { formatDisplayDateTime } from '@/utils/date'
-import { getPhaseLabel, getPublishStatusLabel, isDeletableActivity, isEditableActivity } from '@/utils/activity'
+import { getPhaseLabel, getPublishModeLabel, getPublishStatusLabel, isDeletableActivity, isEditableActivity } from '@/utils/activity'
 import type { ActivitySummary } from '@/types'
 
 const router = useRouter()
@@ -123,8 +123,8 @@ onMounted(loadActivities)
           <el-table-column label="发布配置" min-width="220">
             <template #default="{ row }">
               <div class="cell-stack">
-                <strong>{{ row.publishMode }}</strong>
-                <span>{{ formatDisplayDateTime(row.publishTime) }}</span>
+                <strong>{{ getPublishModeLabel(row.publishMode) }}</strong>
+                <span>发布时间 {{ formatDisplayDateTime(row.publishTime) }}</span>
               </div>
             </template>
           </el-table-column>

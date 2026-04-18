@@ -1,5 +1,5 @@
 import { http } from '@/api/http'
-import type { ActivityDetail, ActivityFormPayload, ActivitySummary } from '@/types'
+import type { ActivityDetail, ActivityFormPayload, ActivitySummary, RedeemCodeImportBatchDetail, RedeemCodeImportBatchSummary } from '@/types'
 
 export const activityApi = {
   list() {
@@ -22,5 +22,17 @@ export const activityApi = {
   },
   delete(activityId: number) {
     return http.delete<void>(`/api/activities/${activityId}`)
+  },
+  importCodes(activityId: number, file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    return http.post<RedeemCodeImportBatchDetail>(`/api/activities/${activityId}/codes/import`, formData)
+  },
+  listImportBatches(activityId: number) {
+    return http.get<RedeemCodeImportBatchSummary[]>(`/api/activities/${activityId}/codes/import-batches`)
+  },
+  importBatchDetail(activityId: number, batchNo: string) {
+    return http.get<RedeemCodeImportBatchDetail>(`/api/activities/${activityId}/codes/import-batches/${encodeURIComponent(batchNo)}`)
   },
 }

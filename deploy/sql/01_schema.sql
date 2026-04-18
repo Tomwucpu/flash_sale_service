@@ -73,6 +73,41 @@ CREATE TABLE IF NOT EXISTS `redeem_code` (
   KEY `idx_redeem_code_batch` (`batch_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='兑换码表';
 
+CREATE TABLE IF NOT EXISTS `redeem_code_import_batch` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `activity_id` BIGINT NOT NULL,
+  `batch_no` VARCHAR(64) NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `total_count` INT NOT NULL,
+  `success_count` INT NOT NULL,
+  `failed_count` INT NOT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `created_by` BIGINT DEFAULT NULL,
+  `updated_by` BIGINT DEFAULT NULL,
+  `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_redeem_code_import_batch_no` (`batch_no`),
+  KEY `idx_redeem_code_import_batch_activity` (`activity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='兑换码导入批次表';
+
+CREATE TABLE IF NOT EXISTS `redeem_code_import_fail_detail` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `activity_id` BIGINT NOT NULL,
+  `batch_no` VARCHAR(64) NOT NULL,
+  `line_no` INT NOT NULL,
+  `raw_code` VARCHAR(128) DEFAULT NULL,
+  `failure_reason` VARCHAR(64) NOT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `created_by` BIGINT DEFAULT NULL,
+  `updated_by` BIGINT DEFAULT NULL,
+  `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_redeem_code_import_fail_batch` (`batch_no`),
+  KEY `idx_redeem_code_import_fail_activity` (`activity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='兑换码导入失败明细表';
+
 CREATE TABLE IF NOT EXISTS `order_record` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `order_no` VARCHAR(64) NOT NULL,

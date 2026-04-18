@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flashsale.activity.FlashSaleActivityApplication;
 import com.flashsale.common.redis.RedisKeys;
 import com.flashsale.common.security.context.UserContext;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -18,13 +19,17 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,6 +42,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -68,6 +74,8 @@ class ActivityAdminControllerTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.update("delete from redeem_code_import_fail_detail");
+        jdbcTemplate.update("delete from redeem_code_import_batch");
         jdbcTemplate.update("delete from redeem_code");
         jdbcTemplate.update("delete from activity_product");
 
@@ -260,12 +268,163 @@ class ActivityAdminControllerTest {
                 .andExpect(jsonPath("$.message").value("第三方兑换码可用数量不足"));
     }
 
+    @Test
+    void importCsvCreatesBatchAndFailureDetails() throws Exception {
+        Long activityId = insertActivity("导入兑换码活动", "THIRD_PARTY_IMPORTED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 2, BigDecimal.ZERO, false);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "codes.csv",
+                "text/csv",
+                """
+                        code
+                        CODE1001
+                        CODE1001
+                        BAD CODE
+                        
+                        CODE1002
+                        """.getBytes()
+        );
+
+        String response = mockMvc.perform(admin(multipart("/api/activities/{activityId}/codes/import", activityId))
+                        .file(file))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.fileName").value("codes.csv"))
+                .andExpect(jsonPath("$.data.totalCount").value(5))
+                .andExpect(jsonPath("$.data.successCount").value(2))
+                .andExpect(jsonPath("$.data.failedCount").value(3))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String batchNo = objectMapper.readTree(response).path("data").path("batchNo").asText();
+        assertThat(batchNo).isNotBlank();
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(1) from redeem_code where activity_id = ? and batch_no = ?",
+                Integer.class,
+                activityId,
+                batchNo
+        )).isEqualTo(2);
+
+        assertThat(jdbcTemplate.queryForList(
+                "select code, source_type, status from redeem_code where batch_no = ? order by code",
+                batchNo
+        )).containsExactly(
+                Map.of("code", "CODE1001", "source_type", "THIRD_PARTY_IMPORTED", "status", "AVAILABLE"),
+                Map.of("code", "CODE1002", "source_type", "THIRD_PARTY_IMPORTED", "status", "AVAILABLE")
+        );
+
+        assertThat(jdbcTemplate.queryForMap(
+                "select total_count, success_count, failed_count from redeem_code_import_batch where batch_no = ?",
+                batchNo
+        )).containsEntry("total_count", 5)
+                .containsEntry("success_count", 2)
+                .containsEntry("failed_count", 3);
+
+        assertThat(jdbcTemplate.queryForList(
+                "select line_no, raw_code, failure_reason from redeem_code_import_fail_detail where batch_no = ? order by line_no",
+                batchNo
+        )).containsExactly(
+                Map.of("line_no", 3, "raw_code", "CODE1001", "failure_reason", "DUPLICATE_IN_FILE"),
+                Map.of("line_no", 4, "raw_code", "BAD CODE", "failure_reason", "INVALID_FORMAT"),
+                Map.of("line_no", 5, "raw_code", "", "failure_reason", "EMPTY_CODE")
+        );
+    }
+
+    @Test
+    void importXlsxCreatesAvailableCodes() throws Exception {
+        Long activityId = insertActivity("导入Excel兑换码活动", "THIRD_PARTY_IMPORTED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 2, BigDecimal.ZERO, false);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "codes.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                xlsxContent(List.of("code", "XLSX1001", "XLSX1002"))
+        );
+
+        mockMvc.perform(admin(multipart("/api/activities/{activityId}/codes/import", activityId))
+                        .file(file))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.successCount").value(2))
+                .andExpect(jsonPath("$.data.failedCount").value(0));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(1) from redeem_code where activity_id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(2);
+    }
+
+    @Test
+    void importBatchEndpointsReturnSummariesAndFailures() throws Exception {
+        Long activityId = insertActivity("查询导入记录活动", "THIRD_PARTY_IMPORTED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 3, BigDecimal.ZERO, false);
+
+        jdbcTemplate.update("""
+                insert into redeem_code_import_batch (
+                  activity_id, batch_no, file_name, total_count, success_count, failed_count, created_by, updated_by, is_deleted
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                """, activityId, "BATCH-OLD", "old.csv", 2, 2, 0, 1L, 1L);
+        jdbcTemplate.update("""
+                insert into redeem_code_import_batch (
+                  activity_id, batch_no, file_name, total_count, success_count, failed_count, created_by, updated_by, is_deleted
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                """, activityId, "BATCH-NEW", "new.csv", 3, 2, 1, 1L, 1L);
+        jdbcTemplate.update("""
+                insert into redeem_code_import_fail_detail (
+                  activity_id, batch_no, line_no, raw_code, failure_reason, created_by, updated_by, is_deleted
+                ) values (?, ?, ?, ?, ?, ?, ?, 0)
+                """, activityId, "BATCH-NEW", 2, "BAD CODE", "INVALID_FORMAT", 1L, 1L);
+
+        mockMvc.perform(admin(get("/api/activities/{activityId}/codes/import-batches", activityId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].batchNo").value("BATCH-NEW"))
+                .andExpect(jsonPath("$.data[0].failedCount").value(1))
+                .andExpect(jsonPath("$.data[1].batchNo").value("BATCH-OLD"));
+
+        mockMvc.perform(admin(get("/api/activities/{activityId}/codes/import-batches/{batchNo}", activityId, "BATCH-NEW")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.batchNo").value("BATCH-NEW"))
+                .andExpect(jsonPath("$.data.failures[0].lineNumber").value(2))
+                .andExpect(jsonPath("$.data.failures[0].rawCode").value("BAD CODE"))
+                .andExpect(jsonPath("$.data.failures[0].reason").value("INVALID_FORMAT"));
+    }
+
+    @Test
+    void importRejectsPublishedOrNonThirdPartyActivities() throws Exception {
+        Long publishedActivityId = insertActivity("已发布第三方活动", "THIRD_PARTY_IMPORTED", "IMMEDIATE", "PUBLISHED",
+                nowMinusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 2, BigDecimal.ZERO, false);
+        Long systemGeneratedActivityId = insertActivity("系统发码活动", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 2, BigDecimal.ZERO, false);
+        MockMultipartFile file = new MockMultipartFile("file", "codes.csv", "text/csv", "code\nCODE1001\n".getBytes());
+
+        mockMvc.perform(admin(multipart("/api/activities/{activityId}/codes/import", publishedActivityId))
+                        .file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("仅未发布活动允许导入兑换码"));
+
+        mockMvc.perform(admin(multipart("/api/activities/{activityId}/codes/import", systemGeneratedActivityId))
+                        .file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("仅第三方导入模式活动允许导入兑换码"));
+    }
+
     private MockHttpServletRequestBuilder admin(MockHttpServletRequestBuilder builder) {
         return builder
                 .header("X-Request-Id", "REQ-ACTIVITY-001")
                 .header(UserContext.USER_ID_HEADER, 1L)
                 .header(UserContext.USERNAME_HEADER, "publisher")
                 .header(UserContext.ROLE_HEADER, "PUBLISHER");
+    }
+
+    private MockMultipartHttpServletRequestBuilder admin(MockMultipartHttpServletRequestBuilder builder) {
+        builder.header("X-Request-Id", "REQ-ACTIVITY-001");
+        builder.header(UserContext.USER_ID_HEADER, 1L);
+        builder.header(UserContext.USERNAME_HEADER, "publisher");
+        builder.header(UserContext.ROLE_HEADER, "PUBLISHER");
+        return builder;
     }
 
     private Long insertActivity(
@@ -356,5 +515,17 @@ class ActivityAdminControllerTest {
 
     private LocalDateTime nowMinusMinutes(long minutes) {
         return LocalDateTime.now().minusMinutes(minutes);
+    }
+
+    private byte[] xlsxContent(List<String> values) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("codes");
+            for (int index = 0; index < values.size(); index++) {
+                sheet.createRow(index).createCell(0).setCellValue(values.get(index));
+            }
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        }
     }
 }

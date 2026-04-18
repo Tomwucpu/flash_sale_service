@@ -42,3 +42,34 @@ CREATE TABLE IF NOT EXISTS redeem_code (
   is_deleted TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
 );
+
+CREATE TABLE IF NOT EXISTS redeem_code_import_batch (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  activity_id BIGINT NOT NULL,
+  batch_no VARCHAR(64) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  total_count INT NOT NULL,
+  success_count INT NOT NULL,
+  failed_count INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  is_deleted TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS redeem_code_import_fail_detail (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  activity_id BIGINT NOT NULL,
+  batch_no VARCHAR(64) NOT NULL,
+  line_no INT NOT NULL,
+  raw_code VARCHAR(128) DEFAULT NULL,
+  failure_reason VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by BIGINT DEFAULT NULL,
+  updated_by BIGINT DEFAULT NULL,
+  is_deleted TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id)
+);

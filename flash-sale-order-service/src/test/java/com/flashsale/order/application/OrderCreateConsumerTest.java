@@ -205,6 +205,34 @@ class OrderCreateConsumerTest {
         verify(valueOperations).decrement(RedisKeys.seckillLimit(activityId, 2005L));
     }
 
+    @Test
+    void paymentActivityCreatesWaitPayOrderAndWritesPendingPaymentResult() {
+        Long activityId = insertActivity("THIRD_PARTY_IMPORTED", true, new BigDecimal("9.90"));
+        when(orderNoGenerator.nextOrderNo()).thenReturn("SO202604190006");
+
+        orderCreateConsumer.onOrderCreate(orderCreateEvent(activityId, 2006L, "REQ-ORDER-006", true, "THIRD_PARTY_IMPORTED"));
+
+        Map<String, Object> order = jdbcTemplate.queryForMap("select * from order_record where order_no = ?", "SO202604190006");
+        assertThat(order)
+                .containsEntry("activity_id", activityId)
+                .containsEntry("user_id", 2006L)
+                .containsEntry("order_status", "INIT")
+                .containsEntry("pay_status", "WAIT_PAY")
+                .containsEntry("code_status", "PENDING")
+                .containsEntry("price_amount", new BigDecimal("9.90"))
+                .containsEntry("fail_reason", null);
+
+        ArgumentCaptor<Map<String, Object>> resultCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(hashOperations).putAll(eq(RedisKeys.seckillResult(activityId, 2006L)), resultCaptor.capture());
+        assertThat(resultCaptor.getValue())
+                .containsEntry("status", "PENDING_PAYMENT")
+                .containsEntry("orderNo", "SO202604190006")
+                .containsEntry("message", "待支付")
+                .containsEntry("code", "");
+        verify(valueOperations, never()).increment(anyString());
+        verify(valueOperations, never()).decrement(anyString());
+    }
+
     private DomainEvent<Map<String, Object>> orderCreateEvent(
             Long activityId,
             Long userId,
@@ -227,6 +255,10 @@ class OrderCreateConsumerTest {
     }
 
     private Long insertActivity(String codeSourceMode) {
+        return insertActivity(codeSourceMode, false, BigDecimal.ZERO);
+    }
+
+    private Long insertActivity(String codeSourceMode, boolean needPayment, BigDecimal priceAmount) {
         jdbcTemplate.update("""
                         insert into activity_product (
                           title, description, cover_url, total_stock, available_stock, price_amount, need_payment,
@@ -239,8 +271,8 @@ class OrderCreateConsumerTest {
                 "https://example.com/activity.png",
                 10,
                 10,
-                BigDecimal.ZERO,
-                0,
+                priceAmount,
+                needPayment ? 1 : 0,
                 "SINGLE",
                 1,
                 codeSourceMode,

@@ -25,4 +25,24 @@ public class OrderMqConfiguration {
     Binding orderCreateBinding(Queue orderCreateQueue, TopicExchange flashSaleEventExchange) {
         return BindingBuilder.bind(orderCreateQueue).to(flashSaleEventExchange).with("order.create");
     }
+
+    @Bean
+    Queue paymentSuccessQueue() {
+        return QueueBuilder.durable("flash.sale.payment.success.queue").build();
+    }
+
+    @Bean
+    Binding paymentSuccessBinding(Queue paymentSuccessQueue, TopicExchange flashSaleEventExchange) {
+        return BindingBuilder.bind(paymentSuccessQueue).to(flashSaleEventExchange).with("payment.success");
+    }
+
+    @Bean
+    Queue orderTimeoutCloseQueue() {
+        return QueueBuilder.durable("flash.sale.order.timeout.close.queue").build();
+    }
+
+    @Bean
+    Binding orderTimeoutCloseBinding(Queue orderTimeoutCloseQueue, TopicExchange flashSaleEventExchange) {
+        return BindingBuilder.bind(orderTimeoutCloseQueue).to(flashSaleEventExchange).with("order.timeout.close");
+    }
 }

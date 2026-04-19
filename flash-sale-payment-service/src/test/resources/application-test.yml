@@ -1,0 +1,20 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:flash_sale_payment;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  rabbitmq:
+    dynamic: false
+
+logging:
+  level:
+    root: warn

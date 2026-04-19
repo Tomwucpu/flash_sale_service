@@ -17,6 +17,7 @@ public class OrderCreateConsumer {
     public void onOrderCreate(DomainEvent<?> event) {
         OrderCreatePayload payload = OrderCreatePayload.from(event);
         if (payload.needPayment()) {
+            orderProcessingService.handlePaymentOrder(payload);
             return;
         }
         orderProcessingService.handleFreeOrder(payload);

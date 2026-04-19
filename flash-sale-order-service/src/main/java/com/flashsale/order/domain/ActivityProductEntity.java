@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @TableName("activity_product")
@@ -15,6 +16,9 @@ public class ActivityProductEntity {
 
     @TableField("code_source_mode")
     private String codeSourceMode;
+
+    @TableField("price_amount")
+    private BigDecimal priceAmount;
 
     @TableField("end_time")
     private LocalDateTime endTime;
@@ -36,6 +40,14 @@ public class ActivityProductEntity {
 
     public void setCodeSourceMode(String codeSourceMode) {
         this.codeSourceMode = codeSourceMode;
+    }
+
+    public BigDecimal getPriceAmount() {
+        return priceAmount;
+    }
+
+    public void setPriceAmount(BigDecimal priceAmount) {
+        this.priceAmount = priceAmount;
     }
 
     public LocalDateTime getEndTime() {

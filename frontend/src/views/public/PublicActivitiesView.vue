@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowRight } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
+import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { formatDisplayDateTime } from '@/utils/date'
 import { getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
@@ -10,13 +11,20 @@ import type { ActivitySummary } from '@/types'
 
 const loading = ref(false)
 const activities = ref<ActivitySummary[]>([])
+const errorMessage = ref('')
 
 const toneMap = ['blue', 'green', 'amber'] as const
 
 onMounted(async () => {
   loading.value = true
-  activities.value = await publicActivityApi.list()
-  loading.value = false
+  errorMessage.value = ''
+  try {
+    activities.value = await publicActivityApi.list()
+  } catch (error) {
+    errorMessage.value = error instanceof ApiClientError ? error.message : '活动列表加载失败'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -26,12 +34,21 @@ onMounted(async () => {
       <div class="eyebrow">Public Activities</div>
       <h1 class="poster-title">用户侧先展示节奏，再接真实交易链路。</h1>
       <p class="poster-copy">
-        这里暂时不调用未开放的秒杀、订单、支付接口，只用 mock 数据保持未来真实接口兼容的结构，让页面、文案和状态切换都先可见。
+        这里直接读取后端已发布活动数据，当前会展示公开可见的预告中、进行中和已结束活动；秒杀、订单、支付链路仍等后续接口开放后再接入。
       </p>
     </section>
 
     <section class="public-cards" v-loading="loading">
+      <div v-if="errorMessage" class="empty-state public-empty-state">
+        <strong>活动列表暂时不可用</strong>
+        <p>{{ errorMessage }}</p>
+      </div>
+      <div v-else-if="activities.length === 0" class="empty-state public-empty-state">
+        <strong>当前没有公开活动</strong>
+        <p>后端暂无已发布活动，等活动发布后会自动出现在这里。</p>
+      </div>
       <RouterLink
+        v-else
         v-for="(activity, index) in activities"
         :key="activity.id"
         class="public-card"
@@ -70,6 +87,10 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.public-empty-state {
+  grid-column: 1 / -1;
 }
 
 .public-card {

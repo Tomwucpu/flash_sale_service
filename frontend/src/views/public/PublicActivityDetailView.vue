@@ -3,22 +3,34 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { BanknoteArrowUp, ShoppingBag, Ticket } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
+import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { formatDisplayDateTime } from '@/utils/date'
-import { getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
+import { getCodeSourceModeLabel, getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
 import type { ActivityDetail } from '@/types'
 
 const route = useRoute()
 const detail = ref<ActivityDetail | null>(null)
+const loading = ref(false)
+const errorMessage = ref('')
 const activityId = computed(() => Number(route.params.id))
 
 onMounted(async () => {
-  detail.value = await publicActivityApi.detail(activityId.value)
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    detail.value = await publicActivityApi.detail(activityId.value)
+  } catch (error) {
+    detail.value = null
+    errorMessage.value = error instanceof ApiClientError ? error.message : '活动详情加载失败'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
 <template>
-  <div class="page-shell" v-if="detail">
+  <div class="page-shell" v-loading="loading" v-if="detail">
     <section class="detail-hero">
       <div class="detail-hero__image">
         <img :src="detail.coverUrl" :alt="detail.title" />
@@ -62,7 +74,7 @@ onMounted(async () => {
           <div class="meta-row"><span>价格</span><strong>{{ detail.priceAmount }}</strong></div>
           <div class="meta-row"><span>库存</span><strong>{{ detail.availableStock }} / {{ detail.totalStock }}</strong></div>
           <div class="meta-row"><span>支付要求</span><strong>{{ detail.needPayment ? '需要支付' : '免支付' }}</strong></div>
-          <div class="meta-row"><span>兑换码来源</span><strong>{{ detail.codeSourceMode }}</strong></div>
+          <div class="meta-row"><span>兑换码来源</span><strong>{{ getCodeSourceModeLabel(detail.codeSourceMode) }}</strong></div>
         </div>
       </article>
       <article class="flat-panel flat-panel--soft">
@@ -71,9 +83,16 @@ onMounted(async () => {
           <div class="meta-row"><span>发布时间</span><strong>{{ formatDisplayDateTime(detail.publishTime) }}</strong></div>
           <div class="meta-row"><span>开始时间</span><strong>{{ formatDisplayDateTime(detail.startTime) }}</strong></div>
           <div class="meta-row"><span>结束时间</span><strong>{{ formatDisplayDateTime(detail.endTime) }}</strong></div>
-          <div class="meta-row"><span>限购规则</span><strong>{{ detail.purchaseLimitType }} / {{ detail.purchaseLimitCount }}</strong></div>
+          <div class="meta-row"><span>限购规则</span><strong>{{ detail.purchaseLimitType === 'SINGLE' ? '单人一次' : '单人多次' }} / {{ detail.purchaseLimitCount }}</strong></div>
         </div>
       </article>
+    </section>
+  </div>
+  <div class="page-shell" v-else>
+    <section class="flat-panel flat-panel--amber">
+      <div class="eyebrow">Public Detail</div>
+      <h1 class="poster-title">活动暂不可见</h1>
+      <p class="poster-copy">{{ errorMessage || '你访问的活动不存在，或者当前还未对用户侧公开。' }}</p>
     </section>
   </div>
 </template>

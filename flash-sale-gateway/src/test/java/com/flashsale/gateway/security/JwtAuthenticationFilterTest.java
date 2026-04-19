@@ -55,6 +55,20 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void publicActivitiesEndpointBypassesAuthorizationCheck() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/public/activities").build()
+        );
+        AtomicBoolean chainInvoked = new AtomicBoolean(false);
+
+        filter.filter(exchange, successChain(chainInvoked, new AtomicReference<>()))
+                .block();
+
+        assertTrue(chainInvoked.get());
+        assertEquals(HttpStatus.OK, exchange.getResponse().getStatusCode());
+    }
+
+    @Test
     void protectedEndpointRejectsMissingBearerToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/activities").build()

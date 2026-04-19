@@ -27,7 +27,7 @@ spring:
         - id: flash-sale-activity-service
           uri: lb://flash-sale-activity-service
           predicates:
-            - Path=/api/activities/**
+            - Path=/api/activities/**,/api/public/activities/**
         - id: flash-sale-seckill-service
           uri: lb://flash-sale-seckill-service
           predicates:

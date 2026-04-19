@@ -107,6 +107,22 @@ public class ActivityService {
                 .toList();
     }
 
+    public List<ActivitySummaryResponse> listPublicActivities() {
+        return activityMapper.selectList(
+                        new LambdaQueryWrapper<ActivityEntity>()
+                                .eq(ActivityEntity::getIsDeleted, 0)
+                                .eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name())
+                                .orderByDesc(ActivityEntity::getStartTime)
+                                .orderByDesc(ActivityEntity::getId)
+                ).stream()
+                .map(this::toSummaryResponse)
+                .toList();
+    }
+
+    public ActivityDetailResponse getPublicDetail(Long activityId) {
+        return toDetailResponse(getRequiredPublishedActivity(activityId));
+    }
+
     @Transactional
     public ActivityDetailResponse publish(Long activityId, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
@@ -244,6 +260,19 @@ public class ActivityService {
                 new LambdaQueryWrapper<ActivityEntity>()
                         .eq(ActivityEntity::getId, activityId)
                         .eq(ActivityEntity::getIsDeleted, 0)
+        );
+        if (activity == null) {
+            throw new IllegalArgumentException("活动不存在");
+        }
+        return activity;
+    }
+
+    private ActivityEntity getRequiredPublishedActivity(Long activityId) {
+        ActivityEntity activity = activityMapper.selectOne(
+                new LambdaQueryWrapper<ActivityEntity>()
+                        .eq(ActivityEntity::getId, activityId)
+                        .eq(ActivityEntity::getIsDeleted, 0)
+                        .eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name())
         );
         if (activity == null) {
             throw new IllegalArgumentException("活动不存在");

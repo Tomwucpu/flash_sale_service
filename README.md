@@ -1,6 +1,6 @@
 # 高并发秒杀兑换平台
 
-本仓库当前已完成实施拆解文档中的 `Task 1: 基础工程与基础设施` 与 `Task 2: 认证与权限`，交付了多模块 Maven 骨架、公共模块、5 个业务服务启动工程、本地基础设施、初始化 SQL，以及用户注册登录、JWT、网关鉴权和基础角色校验。
+本仓库当前已完成实施拆解文档中的 `Task 1` 到 `Task 8` 主体功能，并开始沉淀 `Task 9: 联调与验收` 所需的订单查询、联调脚本、压测脚本与测试数据。当前代码已覆盖活动管理、公开活动浏览、秒杀入口、免费/支付型订单闭环、兑换码查询、模拟支付、导出审计与补偿台账。
 
 ## 技术基线
 
@@ -22,11 +22,13 @@ flash_sale_service/
 │  ├─ docker-compose.yml
 │  └─ sql/
 │     ├─ 01_schema.sql
-│     └─ 02_seed_user.sql
+│     ├─ 02_seed_user.sql
+│     └─ 03_seed_task9_users.sql
 ├─ docs/
 │  ├─ 高并发秒杀兑换平台功能需求与技术架构文档.md
 │  ├─ 高并发秒杀兑换平台详细设计与实施拆解文档.md
 │  ├─ 项目日志.md
+│  ├─ task9-联调与验收说明.md
 │  └─ superpowers/plans/
 │     └─ 2026-04-14-task1-m0-scaffold.md
 ├─ flash-sale-common/
@@ -41,6 +43,10 @@ flash_sale_service/
 ├─ flash-sale-seckill-service/
 ├─ flash-sale-order-service/
 ├─ flash-sale-payment-service/
+├─ scripts/
+│  └─ task9/
+│     ├─ data/payment-import-codes.csv
+│     └─ task9_acceptance.py
 ├─ .env.example
 └─ pom.xml
 ```
@@ -80,6 +86,8 @@ flash_sale_service/
 
    若本地已经存在 MySQL 或 Redis 数据卷，再修改 `.env` 中的账号、密码或端口配置时，需要同步更新已有容器状态，或重建旧卷；仅修改环境变量不会回写已初始化的数据目录。
 
+   如需执行 Task 9 并发压测，可额外手动执行 `deploy/sql/03_seed_task9_users.sql`，初始化 `task9buyer001 ~ task9buyer050` 这批压测账号。
+
 7. 构建工程。
 
    ```powershell
@@ -100,6 +108,8 @@ flash_sale_service/
 | `publisher` | `PUBLISHER` | 活动发布接口联调 |
 | `buyer` | `USER` | 普通抢购用户联调 |
 
+Task 9 压测用户通过 `deploy/sql/03_seed_task9_users.sql` 额外初始化，默认密码同样为 `FlashSale@123`。
+
 ## 端口约定
 
 | 组件 | 端口 |
@@ -118,12 +128,18 @@ flash_sale_service/
 
 `flash-sale-gateway` 默认读取 `APP_PORT`，本地默认值为 `18080`，用于避开部分 Windows 环境中 `8080` 所在的系统排除端口段；如本机 `8080` 可用，可自行覆盖。
 
+## Task 9 自动化
+
+- 冒烟联调：`python scripts/task9/task9_acceptance.py smoke`
+- 本地压测：`python scripts/task9/task9_acceptance.py load-test --activity-id <活动ID> --users 20 --concurrency 20`
+- 说明文档：`docs/task9-联调与验收说明.md`
+
+脚本会把报告写到 `logs/task9/`，方便沉淀验收记录、压测结果和问题清单。
+
 ## 当前交付说明
 
-- 已完成多模块 POM 结构与依赖管理。
-- 已补齐共享响应体、用户上下文、Redis Key 和 MQ 事件模型。
-- 已为 5 个业务服务创建启动类和统一配置占位。
-- 已提供本地基础设施编排和核心库表初始化脚本。
-- 已完成用户注册、登录、当前用户查询和后台按角色查询用户的最小闭环。
-- 已完成 JWT 生成解析、Gateway Bearer Token 鉴权和用户 Header 透传。
-- 下一步应进入 `Task 3: 活动管理与发布`。
+- 已完成 `Task 1 ~ Task 8` 的主要后端能力，包括用户鉴权、活动发布、兑换码导入、秒杀入口、免费/支付型闭环、导出审计与补偿治理。
+- 已打通 `flash-sale-payment-service` 的模拟支付与回调接口，以及 `flash-sale-order-service` 的订单详情、兑换码查询、导出任务与补偿台账接口。
+- 已提供本地基础设施编排、核心库表初始化脚本和默认联调账号。
+- 已为 Task 9 新增压测用户种子、第三方导入码样例文件，以及可复跑的联调/压测脚本。
+- 当前仍待继续完成的主要方向是更完整的后台订单列表、真实第三方支付和更高可靠性的消息治理。

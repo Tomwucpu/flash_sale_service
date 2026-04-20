@@ -212,6 +212,27 @@ public class OrderProcessingService {
         );
     }
 
+    public OrderDetailView queryOrder(String orderNo, Long currentUserId) {
+        OrderRecordEntity order = orderRecordMapper.findByOrderNo(orderNo);
+        if (order == null) {
+            throw new IllegalArgumentException("订单不存在");
+        }
+        if (!order.getUserId().equals(currentUserId)) {
+            throw new com.flashsale.common.security.exception.ForbiddenException("无权查看该订单");
+        }
+        return new OrderDetailView(
+                order.getOrderNo(),
+                order.getActivityId(),
+                order.getUserId(),
+                order.getOrderStatus(),
+                order.getPayStatus(),
+                order.getCodeStatus(),
+                order.getPriceAmount(),
+                order.getFailReason(),
+                order.getUpdatedAt()
+        );
+    }
+
     private ActivityProductEntity loadActivity(Long activityId) {
         return activityProductMapper.selectOne(new LambdaQueryWrapper<ActivityProductEntity>()
                 .eq(ActivityProductEntity::getId, activityId)
@@ -448,6 +469,19 @@ public class OrderProcessingService {
             String payStatus,
             String codeStatus,
             String code,
+            LocalDateTime updatedAt
+    ) {
+    }
+
+    public record OrderDetailView(
+            String orderNo,
+            Long activityId,
+            Long userId,
+            String orderStatus,
+            String payStatus,
+            String codeStatus,
+            BigDecimal priceAmount,
+            String failReason,
             LocalDateTime updatedAt
     ) {
     }

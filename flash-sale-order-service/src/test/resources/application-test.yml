@@ -23,3 +23,7 @@ spring:
 logging:
   level:
     root: warn
+
+flash-sale:
+  export:
+    directory: ./target/test-exports

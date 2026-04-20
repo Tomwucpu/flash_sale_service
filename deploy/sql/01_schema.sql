@@ -167,3 +167,41 @@ CREATE TABLE IF NOT EXISTS `export_task` (
   PRIMARY KEY (`id`),
   KEY `idx_export_activity_status` (`activity_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='导出任务表';
+
+CREATE TABLE IF NOT EXISTS `audit_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `biz_type` VARCHAR(32) NOT NULL,
+  `biz_key` VARCHAR(128) NOT NULL,
+  `operation` VARCHAR(64) NOT NULL,
+  `operator_id` BIGINT DEFAULT NULL,
+  `request_id` VARCHAR(64) DEFAULT NULL,
+  `detail_json` JSON DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `created_by` BIGINT DEFAULT NULL,
+  `updated_by` BIGINT DEFAULT NULL,
+  `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_biz_type_key` (`biz_type`, `biz_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='关键操作审计日志表';
+
+CREATE TABLE IF NOT EXISTS `compensation_record` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `biz_type` VARCHAR(32) NOT NULL,
+  `biz_key` VARCHAR(128) NOT NULL,
+  `source_event` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `reason` VARCHAR(128) NOT NULL,
+  `payload_json` JSON DEFAULT NULL,
+  `resolution_note` VARCHAR(255) DEFAULT NULL,
+  `resolved_at` DATETIME(3) DEFAULT NULL,
+  `resolved_by` BIGINT DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `created_by` BIGINT DEFAULT NULL,
+  `updated_by` BIGINT DEFAULT NULL,
+  `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_compensation_biz_type_key` (`biz_type`, `biz_key`),
+  KEY `idx_compensation_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='异常补偿处理台账表';

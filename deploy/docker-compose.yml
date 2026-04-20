@@ -46,7 +46,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-flashsale}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-flashsale123}
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_PORT:-6672}:5672"
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq

@@ -184,10 +184,6 @@ onMounted(loadDetail)
         </div>
       </div>
 
-      <p class="poster-copy import-copy">
-        当前活动使用第三方兑换码模式，仅在未发布状态下允许导入 <code>csv/xlsx</code> 文件。导入完成后会记录批次统计和失败明细，方便联调校验格式与去重规则。
-      </p>
-
       <div class="import-toolbar">
         <label class="import-file-picker">
           <Upload :size="18" />
@@ -201,7 +197,7 @@ onMounted(loadDetail)
       </div>
 
       <p class="import-tip" v-if="!canImportCodes">
-        当前活动状态为 {{ getPublishStatusLabel(detail.publishStatus) }}，后端仅允许未发布活动导入第三方兑换码。
+        当前状态：{{ getPublishStatusLabel(detail.publishStatus) }}。仅未发布活动可导入兑换码。
       </p>
 
       <article class="flat-panel latest-import-panel" v-if="latestImportResult">
@@ -240,7 +236,7 @@ onMounted(loadDetail)
       <div class="batch-list" v-loading="importBatchesLoading">
         <div class="batch-list-header">
           <div class="eyebrow">Batch History</div>
-          <span>最新导入会排在最前面</span>
+          <span>最新优先</span>
         </div>
 
         <div v-if="importBatches.length > 0" class="batch-list-body">
@@ -273,7 +269,6 @@ onMounted(loadDetail)
         </div>
         <div v-else class="empty-state compact-empty-state">
           <strong>还没有导入记录</strong>
-          <p>上传第一份兑换码文件后，这里会展示批次统计和失败详情入口。</p>
         </div>
       </div>
     </section>
@@ -281,9 +276,6 @@ onMounted(loadDetail)
     <section class="flat-panel flat-panel--soft" v-else-if="detail">
       <div class="eyebrow">Redeem Codes</div>
       <h2 class="import-static-title">当前活动使用系统生成兑换码</h2>
-      <p class="poster-copy import-copy">
-        后端当前仅为 <code>THIRD_PARTY_IMPORTED</code> 模式提供文件导入与批次追踪能力，系统生成模式无需上传外部兑换码文件。
-      </p>
     </section>
 
     <section class="detail-actions" v-if="detail">
@@ -322,7 +314,6 @@ onMounted(loadDetail)
         </div>
         <div v-else class="empty-state compact-empty-state">
           <strong>这个批次没有失败记录</strong>
-          <p>当前导入批次中的兑换码都已通过校验并成功写入后端。</p>
         </div>
       </div>
       <div v-else class="dialog-placeholder">
@@ -378,10 +369,6 @@ onMounted(loadDetail)
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-}
-
-.import-copy {
-  max-width: none;
 }
 
 .import-toolbar {

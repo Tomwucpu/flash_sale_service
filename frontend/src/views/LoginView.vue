@@ -34,20 +34,17 @@ async function handleLogin() {
   <div class="login-page">
     <section class="login-page__poster">
       <div class="eyebrow">Admin Access</div>
-      <h1 class="poster-title">发布、排期、下线，在同一个纯平控制台里完成。</h1>
-      <p class="poster-copy">
-        这个登录页延续整套 Flat Poster 语言。没有阴影和玻璃感，只有大色块、硬边界和粗层级，把“后台真实可用”这件事讲清楚。
-      </p>
+      <h1 class="poster-title">后台登录</h1>
       <div class="login-page__stats">
         <article class="flat-panel flat-panel--blue">
           <ShieldCheck :size="26" />
           <strong>ADMIN / PUBLISHER</strong>
-          <span>可直接进入活动后台，执行创建、编辑、发布、下线。</span>
+          <span>活动管理权限</span>
         </article>
         <article class="flat-panel flat-panel--green">
           <UserRound :size="26" />
           <strong>USER</strong>
-          <span>登录后默认回到公共页，作为用户侧展示流程的联调角色。</span>
+          <span>用户侧浏览</span>
         </article>
       </div>
     </section>
@@ -56,10 +53,7 @@ async function handleLogin() {
       <div class="page-header page-header--amber">
         <div class="eyebrow">Sign In</div>
         <h2 class="login-page__heading">后台入口</h2>
-        <p class="poster-copy">
-          默认联调密码均为 <strong>FlashSale@123</strong>。可使用 `admin`、`publisher`、`buyer`
-          三个账号快速验证权限分流。
-        </p>
+        <p class="poster-copy">默认密码：<strong>FlashSale@123</strong></p>
       </div>
 
       <el-form class="login-page__form flat-panel" label-position="top" @submit.prevent="handleLogin">

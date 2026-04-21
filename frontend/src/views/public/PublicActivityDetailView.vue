@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { BanknoteArrowUp, ShoppingBag, Ticket } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -49,21 +48,6 @@ onMounted(async () => {
             :tone="detail.phase === 'ONGOING' ? 'blue' : detail.phase === 'PREVIEW' ? 'amber' : 'slate'"
           />
         </div>
-        <div class="detail-hero__cta">
-          <button class="flat-button" type="button">
-            <Ticket :size="18" />
-            立即抢购
-          </button>
-          <button class="flat-button flat-button--secondary" type="button">
-            <ShoppingBag :size="18" />
-            查看订单
-          </button>
-          <button class="flat-button flat-button--ghost" type="button">
-            <BanknoteArrowUp :size="18" />
-            支付占位
-          </button>
-        </div>
-        <p class="detail-note">以上 CTA 当前为展示占位，待后端开放秒杀、订单、支付接口后接入真实流程。</p>
       </div>
     </section>
 
@@ -91,8 +75,8 @@ onMounted(async () => {
   <div class="page-shell" v-else>
     <section class="flat-panel flat-panel--amber">
       <div class="eyebrow">Public Detail</div>
-      <h1 class="poster-title">活动暂不可见</h1>
-      <p class="poster-copy">{{ errorMessage || '你访问的活动不存在，或者当前还未对用户侧公开。' }}</p>
+      <h1 class="poster-title">活动不存在</h1>
+      <p class="poster-copy">{{ errorMessage || '你访问的活动不存在。' }}</p>
     </section>
   </div>
 </template>
@@ -131,17 +115,10 @@ onMounted(async () => {
   background: #dbeafe;
 }
 
-.detail-hero__badges,
-.detail-hero__cta {
+.detail-hero__badges {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-}
-
-.detail-note {
-  margin: 0;
-  color: var(--fg-soft);
-  line-height: 1.6;
 }
 
 @media (max-width: 960px) {

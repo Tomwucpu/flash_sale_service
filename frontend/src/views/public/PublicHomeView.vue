@@ -8,10 +8,8 @@ import { ArrowRight, BadgeCheck, LayoutPanelTop, Sparkles } from 'lucide-vue-nex
     <section class="public-hero">
       <div class="public-hero__copy">
         <div class="eyebrow">Poster Homepage</div>
-        <h1 class="poster-title">把后台可配置能力，翻译成用户能一眼看懂的活动入口。</h1>
-        <p class="poster-copy">
-          当前用户侧接口仍未开放，所以这里用本地 mock 数据搭出完整展示壳子。风格和后台共用同一套 token，但用更大的色块、几何装饰和更强的海报感去建立记忆点。
-        </p>
+        <h1 class="poster-title">活动入口</h1>
+        <p class="poster-copy">查看公开活动，或进入后台管理。</p>
         <div class="public-hero__actions">
           <RouterLink class="flat-button" to="/public/activities">
             查看活动列表
@@ -23,38 +21,20 @@ import { ArrowRight, BadgeCheck, LayoutPanelTop, Sparkles } from 'lucide-vue-nex
       <div class="public-hero__grid">
         <article class="flat-panel flat-panel--blue">
           <LayoutPanelTop :size="28" />
-          <strong>后台真实联调</strong>
-          <span>登录、活动管理、发布与下线全部走现有后端接口。</span>
+          <strong>后台管理</strong>
+          <span>创建、发布、下线。</span>
         </article>
         <article class="flat-panel flat-panel--green">
           <BadgeCheck :size="28" />
-          <strong>用户侧完整展示</strong>
-          <span>首页、活动列表、详情页均可独立演示流程与样式。</span>
+          <strong>公开活动</strong>
+          <span>列表与详情。</span>
         </article>
         <article class="flat-panel flat-panel--amber public-hero__accent">
           <Sparkles :size="30" />
-          <strong>Flat Design / Poster</strong>
-          <span>零阴影、零玻璃感，用粗边界和高对比结构建立秩序。</span>
+          <strong>Flat Poster</strong>
+          <span>简洁直观。</span>
         </article>
       </div>
-    </section>
-
-    <section class="flat-grid flat-grid--3">
-      <article class="flat-panel">
-        <div class="eyebrow">Flow 01</div>
-        <h2>配置活动</h2>
-        <p>后台编辑页对齐后端字段，统一枚举与时间格式。</p>
-      </article>
-      <article class="flat-panel flat-panel--blue">
-        <div class="eyebrow">Flow 02</div>
-        <h2>发布或定时</h2>
-        <p>发布动作会直接触发当前已有的发布逻辑和调度器策略。</p>
-      </article>
-      <article class="flat-panel flat-panel--green">
-        <div class="eyebrow">Flow 03</div>
-        <h2>公开展示</h2>
-        <p>用户侧壳子用 mock 数据先把品牌展示和 CTA 节奏铺平。</p>
-      </article>
     </section>
   </div>
 </template>

@@ -32,10 +32,7 @@ onMounted(async () => {
   <div class="page-shell">
     <section class="page-header page-header--green">
       <div class="eyebrow">Public Activities</div>
-      <h1 class="poster-title">用户侧先展示节奏，再接真实交易链路。</h1>
-      <p class="poster-copy">
-        这里直接读取后端已发布活动数据，当前会展示公开可见的预告中、进行中和已结束活动；秒杀、订单、支付链路仍等后续接口开放后再接入。
-      </p>
+      <h1 class="poster-title">公开活动列表</h1>
     </section>
 
     <section class="public-cards" v-loading="loading">
@@ -45,7 +42,6 @@ onMounted(async () => {
       </div>
       <div v-else-if="activities.length === 0" class="empty-state public-empty-state">
         <strong>当前没有公开活动</strong>
-        <p>后端暂无已发布活动，等活动发布后会自动出现在这里。</p>
       </div>
       <RouterLink
         v-else

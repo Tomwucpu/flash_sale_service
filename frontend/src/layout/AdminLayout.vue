@@ -19,19 +19,15 @@ function handleLogout() {
 </script>
 
 <template>
-  <div class="admin-shell">
+  <div class="admin-shell" :class="{ 'admin-shell--collapsed': !appStore.sidebarOpen }">
     <aside class="admin-shell__aside" :class="{ 'admin-shell__aside--collapsed': !appStore.sidebarOpen }">
       <div class="admin-shell__brand">
-        <AppBrand />
+        <AppBrand :compact="!appStore.sidebarOpen" />
       </div>
       <RouterLink class="admin-shell__nav-item" to="/admin/activities">
         <Tickets :size="18" />
         <span v-if="appStore.sidebarOpen">活动管理</span>
       </RouterLink>
-      <div class="admin-shell__poster">
-        <span>Poster</span>
-        <strong>Build publish-ready campaign blocks without shadows.</strong>
-      </div>
     </aside>
     <div class="admin-shell__body">
       <header class="admin-shell__header">
@@ -62,10 +58,16 @@ function handleLogout() {
 
 <style scoped>
 .admin-shell {
+  --aside-width: 264px;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
+  grid-template-columns: var(--aside-width) minmax(0, 1fr);
   background: #f3f4f6;
+  transition: grid-template-columns 0.28s ease;
+}
+
+.admin-shell--collapsed {
+  --aside-width: 96px;
 }
 
 .admin-shell__aside {
@@ -75,15 +77,29 @@ function handleLogout() {
   padding: 1.25rem;
   border-right: 2px solid var(--fg);
   background: white;
+  overflow: hidden;
+  transition:
+    gap 0.28s ease,
+    padding 0.28s ease;
 }
 
 .admin-shell__aside--collapsed {
-  width: 96px;
+  gap: 0.75rem;
+  padding-inline: 0.65rem;
+  align-items: center;
 }
 
 .admin-shell__brand {
   padding-bottom: 0.75rem;
   border-bottom: 2px solid var(--fg);
+  transition: padding 0.28s ease;
+}
+
+.admin-shell__aside--collapsed .admin-shell__brand {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 0.5rem;
 }
 
 .admin-shell__nav-item {
@@ -94,23 +110,18 @@ function handleLogout() {
   border: 2px solid var(--fg);
   background: #dbeafe;
   font-weight: 800;
+  transition:
+    padding 0.24s ease,
+    gap 0.24s ease,
+    justify-content 0.24s ease;
 }
 
-.admin-shell__poster {
-  margin-top: auto;
-  display: grid;
-  gap: 0.5rem;
-  padding: 1rem;
-  border: 2px solid var(--fg);
-  background: #ecfdf5;
-  font-size: 0.9rem;
-}
-
-.admin-shell__poster span {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.72rem;
-  font-weight: 800;
+.admin-shell__aside--collapsed .admin-shell__nav-item {
+  width: 3.5rem;
+  height: 3.5rem;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
 }
 
 .admin-shell__body {

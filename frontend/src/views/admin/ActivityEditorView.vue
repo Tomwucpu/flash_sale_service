@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, ArrowRight, CalendarClock, Save, TicketPercent } from 'lucide-vue-next'
@@ -44,6 +44,25 @@ function createDefaultForm(): ActivityFormModel {
 }
 
 const form = reactive<ActivityFormModel>(createDefaultForm())
+
+watch(
+  () => form.needPayment,
+  (needPayment) => {
+    if (!needPayment) {
+      form.priceAmount = 0
+    }
+  },
+)
+
+watch(
+  () => form.purchaseLimitType,
+  (purchaseLimitType) => {
+    if (purchaseLimitType === 'SINGLE') {
+      form.purchaseLimitCount = 1
+    }
+  },
+  { immediate: true },
+)
 
 function fillForm(detailResponse: ActivityDetail) {
   form.title = detailResponse.title
@@ -103,14 +122,11 @@ onMounted(loadDetail)
   <div class="page-shell">
     <section class="page-header page-header--green">
       <div class="eyebrow">{{ isEditing ? 'Activity Edit' : 'Activity Create' }}</div>
-      <h1 class="poster-title">{{ isEditing ? '在发布之前，把活动规则整理成一张清晰的海报。' : '新建活动，用清晰配置替代隐藏逻辑。' }}</h1>
-      <p class="poster-copy">
-        表单字段和后端 DTO 保持一致，时间以 <code>yyyy-MM-dd HH:mm:ss</code> 发送，所有枚举收口为固定选项，不留自由文本歧义。
-      </p>
+      <h1 class="poster-title">{{ isEditing ? '编辑活动' : '新建活动' }}</h1>
     </section>
 
     <section v-if="isEditing && detail && !canSubmit" class="flat-panel flat-panel--amber">
-      当前活动状态为 {{ detail.publishStatus }}，已不允许继续编辑。请返回详情页查看状态或执行下线动作。
+      当前活动状态为 {{ detail.publishStatus }}，不允许编辑。
     </section>
 
     <section class="editor-grid" v-loading="loading">
@@ -134,11 +150,11 @@ onMounted(loadDetail)
           <el-form-item label="活动描述">
             <el-input v-model="form.description" type="textarea" :rows="4" maxlength="2000" />
           </el-form-item>
-          <div class="flat-grid flat-grid--2">
+          <div class="flat-grid" :class="{ 'flat-grid--2': form.needPayment }">
             <el-form-item label="活动库存">
               <el-input-number v-model="form.totalStock" :min="1" :step="10" />
             </el-form-item>
-            <el-form-item label="活动金额">
+            <el-form-item v-if="form.needPayment" label="活动金额">
               <el-input-number v-model="form.priceAmount" :min="0" :step="1" :precision="2" />
             </el-form-item>
           </div>
@@ -162,7 +178,7 @@ onMounted(loadDetail)
               <el-segmented v-model="form.purchaseLimitType" :options="purchaseLimitOptions" block />
             </el-form-item>
             <el-form-item label="限购次数">
-              <el-input-number v-model="form.purchaseLimitCount" :min="1" />
+              <el-input-number v-model="form.purchaseLimitCount" :min="1" :disabled="form.purchaseLimitType === 'SINGLE'" />
             </el-form-item>
           </div>
           <div class="flat-grid flat-grid--2">

@@ -34,7 +34,7 @@ async function loadActivities() {
 }
 
 async function handlePublish(activityId: number) {
-  await ElMessageBox.confirm('发布后将按配置立即上线或进入定时调度，继续吗？', '发布活动', {
+  await ElMessageBox.confirm('确认发布活动？', '发布活动', {
     type: 'warning',
     confirmButtonText: '确认发布',
   })
@@ -44,7 +44,7 @@ async function handlePublish(activityId: number) {
 }
 
 async function handleOffline(activityId: number) {
-  await ElMessageBox.confirm('下线会同步移除活动缓存和可见索引，继续吗？', '下线活动', {
+  await ElMessageBox.confirm('确认下线活动？', '下线活动', {
     type: 'warning',
     confirmButtonText: '确认下线',
   })
@@ -54,7 +54,7 @@ async function handleOffline(activityId: number) {
 }
 
 async function handleDelete(activityId: number) {
-  await ElMessageBox.confirm('删除会将活动标记为已删除，并同步清理活动缓存。继续吗？', '删除活动', {
+  await ElMessageBox.confirm('确认删除活动？', '删除活动', {
     type: 'warning',
     confirmButtonText: '确认删除',
   })
@@ -70,22 +70,19 @@ onMounted(loadActivities)
   <div class="page-shell">
     <section class="page-header page-header--blue">
       <div class="eyebrow">Activity Console</div>
-      <h1 class="poster-title">发布计划不需要被埋进表格深处。</h1>
-      <p class="poster-copy">
-        后台列表直接对接后端活动接口。每条记录都保留发布状态、阶段、时间窗和动作入口，便于联调角色与发布节奏一起验证。
-      </p>
+      <h1 class="poster-title">活动管理</h1>
       <div class="stat-grid">
         <article class="stat-block">
           <strong>{{ summary.total }}</strong>
-          <span>当前活动总数</span>
+          <span>活动总数</span>
         </article>
         <article class="stat-block" style="background: #fef3c7">
           <strong>{{ summary.draft }}</strong>
-          <span>未发布，可编辑</span>
+          <span>未发布</span>
         </article>
         <article class="stat-block" style="background: #d1fae5">
           <strong>{{ summary.live }}</strong>
-          <span>已发布，联调中</span>
+          <span>已发布</span>
         </article>
       </div>
     </section>
@@ -193,22 +190,12 @@ onMounted(loadActivities)
                   <Trash2 :size="16" />
                   删除
                 </button>
-                <span class="action-hint">
-                  {{
-                    isEditableActivity(row)
-                      ? '未发布状态可编辑，也可直接删除'
-                      : isDeletableActivity(row)
-                        ? '已下线活动可查看、下线和删除'
-                        : '已发布活动仅支持查看和下线'
-                  }}
-                </span>
               </div>
             </template>
           </el-table-column>
         </el-table>
         <div v-else class="empty-state" data-testid="activity-empty-state">
           <strong>当前还没有活动</strong>
-          <p>先创建第一场活动，列表会在这里展示状态、时间窗和发布操作。</p>
         </div>
       </div>
     </section>
@@ -239,8 +226,7 @@ onMounted(loadActivities)
   font-size: 0.98rem;
 }
 
-.cell-stack span,
-.action-hint {
+.cell-stack span {
   color: var(--fg-soft);
   font-size: 0.8rem;
   line-height: 1.4;
@@ -272,13 +258,6 @@ onMounted(loadActivities)
 
 .empty-state strong {
   font-size: 1.1rem;
-}
-
-.empty-state p {
-  max-width: 34rem;
-  margin: 0;
-  color: var(--fg-soft);
-  line-height: 1.6;
 }
 
 @media (max-width: 960px) {

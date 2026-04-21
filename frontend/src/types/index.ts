@@ -88,7 +88,7 @@ export interface ActivityFormPayload {
   purchaseLimitCount: number
   codeSourceMode: CodeSourceMode
   publishMode: PublishMode
-  publishTime: string
+  publishTime?: string
   startTime: string
   endTime: string
 }

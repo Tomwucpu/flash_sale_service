@@ -37,7 +37,7 @@ function createDefaultForm(): ActivityFormModel {
     purchaseLimitCount: 1,
     codeSourceMode: 'SYSTEM_GENERATED',
     publishMode: 'IMMEDIATE',
-    publishTime: start,
+    publishTime: null,
     startTime: start,
     endTime: end,
   }
@@ -59,6 +59,20 @@ watch(
   (purchaseLimitType) => {
     if (purchaseLimitType === 'SINGLE') {
       form.purchaseLimitCount = 1
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => form.publishMode,
+  (publishMode) => {
+    if (publishMode === 'IMMEDIATE') {
+      form.publishTime = null
+      return
+    }
+    if (!form.publishTime) {
+      form.publishTime = form.startTime
     }
   },
   { immediate: true },
@@ -98,6 +112,11 @@ async function loadDetail() {
 }
 
 async function handleSubmit() {
+  if (form.publishMode === 'SCHEDULED' && !form.publishTime) {
+    ElMessage.error('定时发布需要设置发布时间')
+    return
+  }
+
   submitting.value = true
   try {
     const payload = toActivityPayload(form)
@@ -197,8 +216,8 @@ onMounted(loadDetail)
               </el-radio-group>
             </el-form-item>
           </div>
-          <div class="flat-grid flat-grid--2">
-            <el-form-item label="发布时间">
+          <div class="flat-grid" :class="{ 'flat-grid--2': form.publishMode === 'SCHEDULED' }">
+            <el-form-item v-if="form.publishMode === 'SCHEDULED'" label="发布时间">
               <el-date-picker v-model="form.publishTime" type="datetime" placeholder="选择发布时间" />
             </el-form-item>
             <el-form-item label="活动开始时间">

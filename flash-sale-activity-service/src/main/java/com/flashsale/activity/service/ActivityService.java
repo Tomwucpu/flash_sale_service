@@ -64,6 +64,9 @@ public class ActivityService {
         activity.setCreatedBy(operatorId);
         activity.setUpdatedBy(operatorId);
         activityMapper.insert(activity);
+        if (PublishMode.IMMEDIATE.name().equals(request.publishMode())) {
+            return toDetailResponse(doPublish(activity, operatorId, true));
+        }
         return toDetailResponse(activity);
     }
 
@@ -86,10 +89,14 @@ public class ActivityService {
                 request.endTime()
         );
 
+        Long operatorId = operatorId(userContext);
         fillFromUpdateRequest(activity, request);
         activity.setAvailableStock(request.totalStock());
-        activity.setUpdatedBy(operatorId(userContext));
+        activity.setUpdatedBy(operatorId);
         activityMapper.updateById(activity);
+        if (PublishMode.IMMEDIATE.name().equals(request.publishMode())) {
+            return toDetailResponse(doPublish(activity, operatorId, true));
+        }
         return toDetailResponse(activity);
     }
 
@@ -134,6 +141,14 @@ public class ActivityService {
             return toDetailResponse(activity);
         }
 
+        boolean resetPublishTimeToNow = PublishMode.IMMEDIATE.name().equals(activity.getPublishMode());
+        return toDetailResponse(doPublish(activity, operatorId(userContext), resetPublishTimeToNow));
+    }
+
+    @Transactional
+    public ActivityDetailResponse advancePublish(Long activityId, UserContext userContext) {
+        ActivityEntity activity = getRequiredActivity(activityId);
+        validatePublish(activity);
         return toDetailResponse(doPublish(activity, operatorId(userContext), true));
     }
 
@@ -178,12 +193,12 @@ public class ActivityService {
         }
     }
 
-    private ActivityEntity doPublish(ActivityEntity activity, Long operatorId, boolean immediatePublishRequest) {
+    private ActivityEntity doPublish(ActivityEntity activity, Long operatorId, boolean resetPublishTimeToNow) {
         if (PublishStatus.PUBLISHED.name().equals(activity.getPublishStatus())) {
             return activity;
         }
 
-        if (immediatePublishRequest && PublishMode.IMMEDIATE.name().equals(activity.getPublishMode())) {
+        if (resetPublishTimeToNow) {
             activity.setPublishTime(LocalDateTime.now());
         }
 
@@ -230,9 +245,6 @@ public class ActivityService {
             LocalDateTime startTime,
             LocalDateTime endTime
     ) {
-        if (publishTime.isAfter(startTime)) {
-            throw new IllegalArgumentException("发布时间不能晚于活动开始时间");
-        }
         if (!startTime.isBefore(endTime)) {
             throw new IllegalArgumentException("活动开始时间必须早于结束时间");
         }
@@ -242,7 +254,15 @@ public class ActivityService {
 
         PurchaseLimitType.valueOf(purchaseLimitType);
         CodeSourceMode.valueOf(codeSourceMode);
-        PublishMode.valueOf(publishMode);
+        PublishMode publishModeValue = PublishMode.valueOf(publishMode);
+        if (PublishMode.SCHEDULED.equals(publishModeValue)) {
+            if (publishTime == null) {
+                throw new IllegalArgumentException("定时发布必须设置发布时间");
+            }
+            if (publishTime.isAfter(startTime)) {
+                throw new IllegalArgumentException("发布时间不能晚于活动开始时间");
+            }
+        }
         if (totalStock <= 0) {
             throw new IllegalArgumentException("活动库存必须大于0");
         }
@@ -310,7 +330,7 @@ public class ActivityService {
         activity.setPurchaseLimitCount(request.purchaseLimitCount());
         activity.setCodeSourceMode(request.codeSourceMode());
         activity.setPublishMode(request.publishMode());
-        activity.setPublishTime(request.publishTime());
+        activity.setPublishTime(resolvePublishTime(request.publishMode(), request.publishTime()));
         activity.setStartTime(request.startTime());
         activity.setEndTime(request.endTime());
     }
@@ -326,9 +346,16 @@ public class ActivityService {
         activity.setPurchaseLimitCount(request.purchaseLimitCount());
         activity.setCodeSourceMode(request.codeSourceMode());
         activity.setPublishMode(request.publishMode());
-        activity.setPublishTime(request.publishTime());
+        activity.setPublishTime(resolvePublishTime(request.publishMode(), request.publishTime()));
         activity.setStartTime(request.startTime());
         activity.setEndTime(request.endTime());
+    }
+
+    private LocalDateTime resolvePublishTime(String publishMode, LocalDateTime publishTime) {
+        if (PublishMode.IMMEDIATE.name().equals(publishMode)) {
+            return LocalDateTime.now();
+        }
+        return publishTime;
     }
 
     private Long operatorId(UserContext userContext) {

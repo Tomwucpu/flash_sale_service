@@ -36,7 +36,6 @@ public record ActivityCreateRequest(
         String codeSourceMode,
         @NotBlank(message = "发布模式不能为空")
         String publishMode,
-        @NotNull(message = "发布时间不能为空")
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime publishTime,
         @NotNull(message = "活动开始时间不能为空")

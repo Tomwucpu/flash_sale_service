@@ -94,6 +94,18 @@ public class ActivityAdminController {
         );
     }
 
+    @PostMapping("/{activityId}/advance-publish")
+    @RequireRole({"ADMIN", "PUBLISHER"})
+    public ApiResponse<ActivityDetailResponse> advancePublish(
+            @PathVariable Long activityId,
+            HttpServletRequest httpServletRequest
+    ) {
+        return ApiResponse.success(
+                requestId(httpServletRequest),
+                activityService.advancePublish(activityId, UserContextHolder.get())
+        );
+    }
+
     @PostMapping("/{activityId}/offline")
     @RequireRole({"ADMIN", "PUBLISHER"})
     public ApiResponse<ActivityDetailResponse> offline(

@@ -33,13 +33,18 @@ async function loadActivities() {
   }
 }
 
-async function handlePublish(activityId: number) {
-  await ElMessageBox.confirm('确认发布活动？', '发布活动', {
+async function handlePublish(activity: ActivitySummary) {
+  const isAdvancePublish = activity.publishMode === 'SCHEDULED'
+  await ElMessageBox.confirm(isAdvancePublish ? '确认提前发布该定时活动？' : '确认立即发布活动？', isAdvancePublish ? '提前发布' : '发布活动', {
     type: 'warning',
-    confirmButtonText: '确认发布',
+    confirmButtonText: isAdvancePublish ? '确认提前发布' : '确认发布',
   })
-  await activityApi.publish(activityId)
-  ElMessage.success('发布动作已提交')
+  if (isAdvancePublish) {
+    await activityApi.advancePublish(activity.id)
+  } else {
+    await activityApi.publish(activity.id)
+  }
+  ElMessage.success(isAdvancePublish ? '活动已提前发布' : '活动已立即发布')
   await loadActivities()
 }
 
@@ -167,10 +172,10 @@ onMounted(loadActivities)
                   class="flat-button action-button"
                   type="button"
                   :disabled="row.publishStatus !== 'UNPUBLISHED'"
-                  @click="handlePublish(row.id)"
+                  @click="handlePublish(row)"
                 >
                   <Megaphone :size="16" />
-                  发布
+                  {{ row.publishMode === 'SCHEDULED' ? '提前发布' : '立即发布' }}
                 </button>
                 <button
                   class="flat-button flat-button--ghost action-button"

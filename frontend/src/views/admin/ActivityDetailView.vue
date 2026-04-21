@@ -33,6 +33,8 @@ const batchDialogVisible = ref(false)
 
 const activityId = computed(() => Number(route.params.id))
 const canImportCodes = computed(() => detail.value?.publishStatus === 'UNPUBLISHED')
+const isAdvancePublish = computed(() => detail.value?.publishMode === 'SCHEDULED')
+const publishActionLabel = computed(() => (isAdvancePublish.value ? '提前发布活动' : '立即发布活动'))
 
 async function loadImportBatches() {
   if (!detail.value || !shouldShowCodeImportPanel(detail.value)) {
@@ -70,11 +72,19 @@ async function loadDetail() {
 }
 
 async function handlePublish() {
-  await ElMessageBox.confirm('确认执行发布动作？系统将按照配置立即发布或进入定时调度。', '发布活动', {
+  await ElMessageBox.confirm(
+    isAdvancePublish.value ? '确认提前发布该定时活动？' : '确认立即发布当前活动？',
+    publishActionLabel.value,
+    {
     type: 'warning',
-  })
-  await activityApi.publish(activityId.value)
-  ElMessage.success('发布动作已提交')
+    },
+  )
+  if (isAdvancePublish.value) {
+    await activityApi.advancePublish(activityId.value)
+  } else {
+    await activityApi.publish(activityId.value)
+  }
+  ElMessage.success(isAdvancePublish.value ? '活动已提前发布' : '活动已立即发布')
   await loadDetail()
 }
 
@@ -285,7 +295,7 @@ onMounted(loadDetail)
       </button>
       <button class="flat-button" type="button" :disabled="detail.publishStatus !== 'UNPUBLISHED'" @click="handlePublish">
         <Megaphone :size="18" />
-        发布活动
+        {{ publishActionLabel }}
       </button>
       <button class="flat-button flat-button--ghost" type="button" :disabled="detail.publishStatus === 'OFFLINE'" @click="handleOffline">
         <SquareArrowOutUpRight :size="18" />

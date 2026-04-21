@@ -17,6 +17,9 @@ export const activityApi = {
   publish(activityId: number) {
     return http.post<ActivityDetail>(`/api/activities/${activityId}/publish`)
   },
+  advancePublish(activityId: number) {
+    return http.post<ActivityDetail>(`/api/activities/${activityId}/advance-publish`)
+  },
   offline(activityId: number) {
     return http.post<ActivityDetail>(`/api/activities/${activityId}/offline`)
   },

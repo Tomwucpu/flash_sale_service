@@ -88,14 +88,14 @@ class ActivityAdminControllerTest {
     }
 
     @Test
-    void createActivityPersistsDraftWithFilledAvailableStock() throws Exception {
+    void createImmediateActivityPublishesDirectlyWithoutPublishTime() throws Exception {
         mockMvc.perform(admin(post("/api/activities"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(activityJson(
                                 "新人礼品卡秒杀",
                                 "SYSTEM_GENERATED",
                                 "IMMEDIATE",
-                                nowPlusMinutes(10),
+                                null,
                                 nowPlusMinutes(20),
                                 nowPlusMinutes(40),
                                 50,
@@ -106,16 +106,22 @@ class ActivityAdminControllerTest {
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.title").value("新人礼品卡秒杀"))
                 .andExpect(jsonPath("$.data.availableStock").value(50))
-                .andExpect(jsonPath("$.data.publishStatus").value("UNPUBLISHED"));
+                .andExpect(jsonPath("$.data.publishStatus").value("PUBLISHED"));
 
         Map<String, Object> row = jdbcTemplate.queryForMap("select * from activity_product");
         assertThat(row.get("title")).isEqualTo("新人礼品卡秒杀");
         assertThat(row.get("available_stock")).isEqualTo(50);
-        assertThat(row.get("publish_status")).isEqualTo("UNPUBLISHED");
+        assertThat(row.get("publish_status")).isEqualTo("PUBLISHED");
+        verify(valueOperations, times(1))
+                .set(eq(RedisKeys.seckillStock(((Number) row.get("id")).longValue())), eq("50"), any());
+        verify(hashOperations, times(1))
+                .putAll(eq(RedisKeys.activityDetail(((Number) row.get("id")).longValue())), anyMap());
+        verify(zSetOperations, times(1))
+                .add(eq(RedisKeys.activityVisibleList()), eq(String.valueOf(((Number) row.get("id")).longValue())), anyDouble());
     }
 
     @Test
-    void updateActivityUpdatesDraftFields() throws Exception {
+    void updateImmediateActivityPublishesDirectly() throws Exception {
         Long activityId = insertActivity("待更新活动", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
                 nowPlusMinutes(5), nowPlusMinutes(20), nowPlusMinutes(60), 30, BigDecimal.ZERO, false);
 
@@ -125,7 +131,7 @@ class ActivityAdminControllerTest {
                                 "已更新活动",
                                 "SYSTEM_GENERATED",
                                 "IMMEDIATE",
-                                nowPlusMinutes(8),
+                                null,
                                 nowPlusMinutes(25),
                                 nowPlusMinutes(80),
                                 80,
@@ -136,12 +142,20 @@ class ActivityAdminControllerTest {
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.id").value(activityId))
                 .andExpect(jsonPath("$.data.title").value("已更新活动"))
-                .andExpect(jsonPath("$.data.availableStock").value(80));
+                .andExpect(jsonPath("$.data.availableStock").value(80))
+                .andExpect(jsonPath("$.data.publishStatus").value("PUBLISHED"));
 
         Map<String, Object> row = jdbcTemplate.queryForMap("select * from activity_product where id = ?", activityId);
         assertThat(row.get("title")).isEqualTo("已更新活动");
         assertThat(row.get("available_stock")).isEqualTo(80);
         assertThat(row.get("total_stock")).isEqualTo(80);
+        assertThat(row.get("publish_status")).isEqualTo("PUBLISHED");
+        verify(valueOperations, times(1))
+                .set(eq(RedisKeys.seckillStock(activityId)), eq("80"), any());
+        verify(hashOperations, times(1))
+                .putAll(eq(RedisKeys.activityDetail(activityId)), anyMap());
+        verify(zSetOperations, times(1))
+                .add(eq(RedisKeys.activityVisibleList()), eq(String.valueOf(activityId)), anyDouble());
     }
 
     @Test
@@ -195,6 +209,46 @@ class ActivityAdminControllerTest {
         verify(valueOperations, never()).set(any(), any(), any());
         verify(hashOperations, never()).putAll(any(), anyMap());
         verify(zSetOperations, never()).add(any(), any(), anyDouble());
+    }
+
+    @Test
+    void advancePublishScheduledActivityPublishesImmediately() throws Exception {
+        Long activityId = insertActivity("定时活动提前发布", "SYSTEM_GENERATED", "SCHEDULED", "UNPUBLISHED",
+                nowPlusMinutes(30), nowPlusMinutes(60), nowPlusMinutes(120), 18, BigDecimal.ZERO, false);
+
+        mockMvc.perform(admin(post("/api/activities/{activityId}/advance-publish", activityId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.publishStatus").value("PUBLISHED"));
+
+        assertThat(queryPublishStatus(activityId)).isEqualTo("PUBLISHED");
+        assertThat(queryPublishTime(activityId)).isBeforeOrEqualTo(LocalDateTime.now().plusSeconds(1));
+        verify(valueOperations, times(1))
+                .set(eq(RedisKeys.seckillStock(activityId)), eq("18"), any());
+        verify(hashOperations, times(1))
+                .putAll(eq(RedisKeys.activityDetail(activityId)), anyMap());
+        verify(zSetOperations, times(1))
+                .add(eq(RedisKeys.activityVisibleList()), eq(String.valueOf(activityId)), anyDouble());
+    }
+
+    @Test
+    void createScheduledActivityWithoutPublishTimeIsRejected() throws Exception {
+        mockMvc.perform(admin(post("/api/activities"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(activityJson(
+                                "定时活动缺少发布时间",
+                                "SYSTEM_GENERATED",
+                                "SCHEDULED",
+                                null,
+                                nowPlusMinutes(20),
+                                nowPlusMinutes(40),
+                                50,
+                                BigDecimal.ZERO,
+                                false
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"))
+                .andExpect(jsonPath("$.message").value("定时发布必须设置发布时间"));
     }
 
     @Test
@@ -487,7 +541,9 @@ class ActivityAdminControllerTest {
         payload.put("purchaseLimitCount", 1);
         payload.put("codeSourceMode", codeSourceMode);
         payload.put("publishMode", publishMode);
-        payload.put("publishTime", publishTime.format(FORMATTER));
+        if (publishTime != null) {
+            payload.put("publishTime", publishTime.format(FORMATTER));
+        }
         payload.put("startTime", startTime.format(FORMATTER));
         payload.put("endTime", endTime.format(FORMATTER));
         return objectMapper.writeValueAsString(payload);
@@ -505,6 +561,14 @@ class ActivityAdminControllerTest {
         return jdbcTemplate.queryForObject(
                 "select is_deleted from activity_product where id = ?",
                 Integer.class,
+                activityId
+        );
+    }
+
+    private LocalDateTime queryPublishTime(Long activityId) {
+        return jdbcTemplate.queryForObject(
+                "select publish_time from activity_product where id = ?",
+                LocalDateTime.class,
                 activityId
         );
     }

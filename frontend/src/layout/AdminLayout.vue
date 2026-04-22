@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { LogOut, PanelLeft, Tickets } from 'lucide-vue-next'
+import { House, LogOut, PanelLeft, Tickets } from 'lucide-vue-next'
 import AppBrand from '@/components/AppBrand.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -43,6 +43,10 @@ function handleLogout() {
             <span>{{ userLabel }}</span>
             <small>{{ authStore.currentUser?.role ?? '游客' }}</small>
           </div>
+          <RouterLink class="flat-button flat-button--ghost" to="/public/home">
+            <House :size="16" />
+            首页
+          </RouterLink>
           <button class="flat-button flat-button--ghost" type="button" @click="handleLogout">
             <LogOut :size="16" />
             退出

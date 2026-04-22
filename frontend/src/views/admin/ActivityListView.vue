@@ -160,27 +160,27 @@ onMounted(loadActivities)
                   查看
                 </button>
                 <button
+                  v-if="isEditableActivity(row)"
                   class="flat-button flat-button--secondary action-button"
                   type="button"
-                  :disabled="!isEditableActivity(row)"
                   @click="router.push(`/admin/activities/${row.id}/edit`)"
                 >
                   <PenSquare :size="16" />
                   编辑
                 </button>
                 <button
+                  v-if="row.publishStatus === 'UNPUBLISHED'"
                   class="flat-button action-button"
                   type="button"
-                  :disabled="row.publishStatus !== 'UNPUBLISHED'"
                   @click="handlePublish(row)"
                 >
                   <Megaphone :size="16" />
                   {{ row.publishMode === 'SCHEDULED' ? '提前发布' : '立即发布' }}
                 </button>
                 <button
+                  v-if="row.publishStatus !== 'OFFLINE'"
                   class="flat-button flat-button--ghost action-button"
                   type="button"
-                  :disabled="row.publishStatus === 'OFFLINE'"
                   @click="handleOffline(row.id)"
                 >
                   <SquareArrowOutUpRight :size="16" />

@@ -19,7 +19,10 @@ async function handleLogin() {
   loading.value = true
   try {
     const session = await authStore.login(form)
-    ElMessage.success(`欢迎回来，${session.user.nickname || session.user.username}`)
+    ElMessage.success({
+      message: `欢迎回来，${session.user.nickname || session.user.username}`,
+      duration: 1500,
+    })
     await router.push(authStore.isAdminLike ? '/admin/activities' : '/public/home')
   } catch (error) {
     const message = error instanceof ApiClientError ? error.message : '登录失败，请检查后端服务是否已启动'

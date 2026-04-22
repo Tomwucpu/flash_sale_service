@@ -289,15 +289,15 @@ onMounted(loadDetail)
     </section>
 
     <section class="detail-actions" v-if="detail">
-      <button class="flat-button flat-button--secondary" type="button" :disabled="!isEditableActivity(detail)" @click="router.push(`/admin/activities/${detail.id}/edit`)">
+      <button v-if="isEditableActivity(detail)" class="flat-button flat-button--secondary" type="button" @click="router.push(`/admin/activities/${detail.id}/edit`)">
         <PenSquare :size="18" />
         编辑活动
       </button>
-      <button class="flat-button" type="button" :disabled="detail.publishStatus !== 'UNPUBLISHED'" @click="handlePublish">
+      <button v-if="detail.publishStatus === 'UNPUBLISHED'" class="flat-button" type="button" @click="handlePublish">
         <Megaphone :size="18" />
         {{ publishActionLabel }}
       </button>
-      <button class="flat-button flat-button--ghost" type="button" :disabled="detail.publishStatus === 'OFFLINE'" @click="handleOffline">
+      <button v-if="detail.publishStatus !== 'OFFLINE'" class="flat-button flat-button--ghost" type="button" @click="handleOffline">
         <SquareArrowOutUpRight :size="18" />
         下线活动
       </button>

@@ -25,6 +25,7 @@ function handleLogout() {
       <nav class="public-shell__nav">
         <RouterLink to="/public/home">首页</RouterLink>
         <RouterLink to="/public/activities">活动展示</RouterLink>
+        <RouterLink to="/register">用户注册</RouterLink>
         <RouterLink to="/login">后台登录</RouterLink>
       </nav>
       <div class="public-shell__actions">

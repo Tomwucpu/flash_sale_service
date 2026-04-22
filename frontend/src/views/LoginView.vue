@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowRight, ShieldCheck, Ticket, UserRound } from 'lucide-vue-next'
 import { ApiClientError } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const loading = ref(false)
+const prefilledUsername = typeof route.query.username === 'string' ? route.query.username : 'admin'
 const form = reactive({
-  username: 'admin',
+  username: prefilledUsername,
   password: 'FlashSale@123',
 })
 
@@ -72,6 +74,9 @@ async function handleLogin() {
           <ArrowRight :size="18" />
         </button>
       </el-form>
+      <RouterLink class="flat-button flat-button--ghost login-page__register-entry" to="/register">
+        没有账号？去注册
+      </RouterLink>
     </section>
   </div>
 </template>
@@ -132,6 +137,10 @@ async function handleLogin() {
 }
 
 .login-page__submit {
+  width: 100%;
+}
+
+.login-page__register-entry {
   width: 100%;
 }
 

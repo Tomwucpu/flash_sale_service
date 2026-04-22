@@ -18,6 +18,11 @@ const router = createRouter({
       meta: { title: '登录后台' },
     },
     {
+      path: '/register',
+      component: () => import('@/views/RegisterView.vue'),
+      meta: { title: '用户注册' },
+    },
+    {
       path: '/public',
       component: PublicLayout,
       children: [

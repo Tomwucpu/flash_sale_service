@@ -26,6 +26,13 @@ export interface LoginPayload {
   password: string
 }
 
+export interface RegisterPayload {
+  username: string
+  password: string
+  nickname?: string
+  phone?: string
+}
+
 export type PurchaseLimitType = 'SINGLE' | 'MULTI'
 export type CodeSourceMode = 'SYSTEM_GENERATED' | 'THIRD_PARTY_IMPORTED'
 export type PublishMode = 'IMMEDIATE' | 'SCHEDULED'

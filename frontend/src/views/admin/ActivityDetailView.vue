@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleAlert, History, Megaphone, PenSquare, SquareArrowOutUpRight, Upload } from 'lucide-vue-next'
+import { CircleAlert, History, Megaphone, PenSquare, ReceiptText, SquareArrowOutUpRight, Upload } from 'lucide-vue-next'
 import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -289,6 +289,10 @@ onMounted(loadDetail)
     </section>
 
     <section class="detail-actions" v-if="detail">
+      <button class="flat-button flat-button--ghost" type="button" @click="router.push(`/admin/activities/${detail.id}/orders`)">
+        <ReceiptText :size="18" />
+        订单与兑换码
+      </button>
       <button v-if="isEditableActivity(detail)" class="flat-button flat-button--secondary" type="button" @click="router.push(`/admin/activities/${detail.id}/edit`)">
         <PenSquare :size="18" />
         编辑活动

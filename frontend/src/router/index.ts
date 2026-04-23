@@ -59,6 +59,11 @@ const router = createRouter({
           meta: { title: '新建活动' },
         },
         {
+          path: 'activities/:id/orders',
+          component: () => import('@/views/admin/ActivityOrderListView.vue'),
+          meta: { title: '活动订单' },
+        },
+        {
           path: 'activities/:id',
           component: () => import('@/views/admin/ActivityDetailView.vue'),
           meta: { title: '活动详情' },

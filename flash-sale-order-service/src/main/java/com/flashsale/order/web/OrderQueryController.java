@@ -1,6 +1,7 @@
 package com.flashsale.order.web;
 
 import com.flashsale.common.core.api.ApiResponse;
+import com.flashsale.common.security.auth.RequireRole;
 import com.flashsale.common.security.context.UserContext;
 import com.flashsale.common.security.context.UserContextHolder;
 import com.flashsale.common.security.exception.UnauthorizedException;
@@ -42,6 +43,22 @@ public class OrderQueryController {
     ) {
         Long currentUserId = currentUserId();
         List<OrderProcessingService.OrderDetailView> detailViews = orderProcessingService.queryOrdersByActivity(activityId, currentUserId);
+        return ApiResponse.success(
+                request.getHeader(REQUEST_ID_HEADER),
+                toResponse(detailViews)
+        );
+    }
+
+    @GetMapping("/admin/activities/{activityId}")
+    @RequireRole({"ADMIN", "PUBLISHER"})
+    public ApiResponse<List<OrderQueryResponse>> queryPublisherActivityOrders(
+            @PathVariable Long activityId,
+            HttpServletRequest request
+    ) {
+        List<OrderProcessingService.OrderDetailView> detailViews = orderProcessingService.queryPublisherActivityOrders(
+                activityId,
+                UserContextHolder.get()
+        );
         return ApiResponse.success(
                 request.getHeader(REQUEST_ID_HEADER),
                 toResponse(detailViews)

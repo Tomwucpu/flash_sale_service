@@ -2,6 +2,9 @@ package com.flashsale.order.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.flashsale.common.redis.RedisKeys;
+import com.flashsale.common.security.context.UserContext;
+import com.flashsale.common.security.exception.ForbiddenException;
+import com.flashsale.common.security.exception.UnauthorizedException;
 import com.flashsale.order.domain.ActivityProductEntity;
 import com.flashsale.order.domain.OrderRecordEntity;
 import com.flashsale.order.domain.RedeemCodeEntity;
@@ -22,6 +25,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class OrderProcessingService {
@@ -214,6 +218,22 @@ public class OrderProcessingService {
 
     public List<OrderDetailView> queryOrdersByActivity(Long activityId, Long currentUserId) {
         List<OrderRecordEntity> orders = orderRecordMapper.findByActivityIdAndUserId(activityId, currentUserId);
+        return toOrderDetailViews(orders);
+    }
+
+    public List<OrderDetailView> queryPublisherActivityOrders(Long activityId, UserContext userContext) {
+        ActivityProductEntity activity = loadActivity(activityId);
+        if (activity == null) {
+            throw new IllegalArgumentException("活动不存在");
+        }
+        if (userContext == null || userContext.userId() == null || userContext.userId() <= 0) {
+            throw new UnauthorizedException("未登录或登录状态已失效");
+        }
+        if ("PUBLISHER".equals(userContext.role()) && !Objects.equals(activity.getCreatedBy(), userContext.userId())) {
+            throw new ForbiddenException("无权查看该活动订单");
+        }
+
+        List<OrderRecordEntity> orders = orderRecordMapper.findByActivityId(activityId);
         return toOrderDetailViews(orders);
     }
 

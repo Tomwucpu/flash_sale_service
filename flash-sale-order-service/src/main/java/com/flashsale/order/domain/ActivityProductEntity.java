@@ -23,6 +23,9 @@ public class ActivityProductEntity {
     @TableField("end_time")
     private LocalDateTime endTime;
 
+    @TableField("created_by")
+    private Long createdBy;
+
     @TableField("is_deleted")
     private Integer isDeleted;
 
@@ -56,6 +59,14 @@ public class ActivityProductEntity {
 
     public void setEndTime(LocalDateTime endTime) {
         this.endTime = endTime;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
     }
 
     public Integer getIsDeleted() {

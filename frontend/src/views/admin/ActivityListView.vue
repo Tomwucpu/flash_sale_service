@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Eye, Megaphone, PenSquare, Plus, SquareArrowOutUpRight, Trash2 } from 'lucide-vue-next'
+import { Eye, Megaphone, PenSquare, Plus, ReceiptText, SquareArrowOutUpRight, Trash2 } from 'lucide-vue-next'
 import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -152,12 +152,16 @@ onMounted(loadActivities)
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="操作" min-width="280" fixed="right">
+          <el-table-column label="操作" min-width="320" fixed="right">
             <template #default="{ row }">
               <div class="action-cell">
                 <button class="flat-button flat-button--ghost action-button" type="button" @click="router.push(`/admin/activities/${row.id}`)">
                   <Eye :size="16" />
                   查看
+                </button>
+                <button class="flat-button flat-button--ghost action-button" type="button" @click="router.push(`/admin/activities/${row.id}/orders`)">
+                  <ReceiptText :size="16" />
+                  订单
                 </button>
                 <button
                   v-if="isEditableActivity(row)"

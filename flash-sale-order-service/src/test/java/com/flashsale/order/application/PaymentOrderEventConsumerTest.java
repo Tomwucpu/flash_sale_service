@@ -118,7 +118,7 @@ class PaymentOrderEventConsumerTest {
 
     @Test
     void timeoutCloseClosesWaitPayOrderAndCompensatesRedis() {
-        Long activityId = insertActivity("THIRD_PARTY_IMPORTED", true, new BigDecimal("39.90"));
+        Long activityId = insertActivity("THIRD_PARTY_IMPORTED", true, new BigDecimal("39.90"), 9);
         insertOrder("SO202604190203", activityId, 2103L, "REQ-PAY-003", "INIT", "WAIT_PAY", "PENDING", new BigDecimal("39.90"));
         when(valueOperations.decrement(RedisKeys.seckillLimit(activityId, 2103L))).thenReturn(0L);
 
@@ -138,6 +138,11 @@ class PaymentOrderEventConsumerTest {
                 .containsEntry("orderNo", "SO202604190203")
                 .containsEntry("message", "支付超时，订单已关闭")
                 .containsEntry("code", "");
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(10);
         verify(valueOperations).increment(RedisKeys.seckillStock(activityId));
         verify(valueOperations).decrement(RedisKeys.seckillLimit(activityId, 2103L));
     }
@@ -156,6 +161,10 @@ class PaymentOrderEventConsumerTest {
     }
 
     private Long insertActivity(String codeSourceMode, boolean needPayment, BigDecimal priceAmount) {
+        return insertActivity(codeSourceMode, needPayment, priceAmount, 10);
+    }
+
+    private Long insertActivity(String codeSourceMode, boolean needPayment, BigDecimal priceAmount, int availableStock) {
         jdbcTemplate.update("""
                         insert into activity_product (
                           title, description, cover_url, total_stock, available_stock, price_amount, need_payment,
@@ -167,7 +176,7 @@ class PaymentOrderEventConsumerTest {
                 "Task7活动描述",
                 "https://example.com/task7.png",
                 10,
-                10,
+                availableStock,
                 priceAmount,
                 needPayment ? 1 : 0,
                 "SINGLE",

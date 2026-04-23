@@ -75,9 +75,11 @@ public class OrderProcessingService {
         }
 
         OrderRecordEntity order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
+        boolean createdNewOrder = false;
         if (order == null) {
             try {
                 order = createInitOrder(payload, BigDecimal.ZERO, PAY_STATUS_NO_NEED);
+                createdNewOrder = true;
             } catch (DataAccessException exception) {
                 order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
                 if (order == null) {
@@ -85,6 +87,13 @@ public class OrderProcessingService {
                     return;
                 }
             }
+        }
+
+        if (createdNewOrder && !reservePersistedStock(payload.activityId(), payload.userId())) {
+            markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+            compensateRedisOnly(payload.activityId(), payload.userId());
+            writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
+            return;
         }
 
         if (isSuccess(order)) {
@@ -124,9 +133,11 @@ public class OrderProcessingService {
         }
 
         OrderRecordEntity order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
+        boolean createdNewOrder = false;
         if (order == null) {
             try {
                 order = createInitOrder(payload, activity.getPriceAmount(), PAY_STATUS_WAIT_PAY);
+                createdNewOrder = true;
             } catch (DataAccessException exception) {
                 order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
                 if (order == null) {
@@ -134,6 +145,13 @@ public class OrderProcessingService {
                     return;
                 }
             }
+        }
+
+        if (createdNewOrder && !reservePersistedStock(payload.activityId(), payload.userId())) {
+            markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+            compensateRedisOnly(payload.activityId(), payload.userId());
+            writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
+            return;
         }
 
         if (isSuccess(order)) {
@@ -341,7 +359,7 @@ public class OrderProcessingService {
             FailureReason reason,
             ActivityProductEntity activity
     ) {
-        compensate(payload.activityId(), payload.userId());
+        compensateRedisOnly(payload.activityId(), payload.userId());
         writeFailure(payload.activityId(), payload.userId(), order, reason, activity);
     }
 
@@ -350,12 +368,21 @@ public class OrderProcessingService {
     }
 
     private void compensate(Long activityId, Long userId) {
+        activityProductMapper.increaseAvailableStock(activityId, userId);
+        compensateRedisOnly(activityId, userId);
+    }
+
+    private void compensateRedisOnly(Long activityId, Long userId) {
         ValueOperations<String, String> valueOperations = stringRedisTemplate.opsForValue();
         valueOperations.increment(RedisKeys.seckillStock(activityId));
         Long remaining = valueOperations.decrement(RedisKeys.seckillLimit(activityId, userId));
         if (remaining != null && remaining < 0) {
             valueOperations.increment(RedisKeys.seckillLimit(activityId, userId));
         }
+    }
+
+    private boolean reservePersistedStock(Long activityId, Long userId) {
+        return activityProductMapper.decreaseAvailableStock(activityId, userId) == 1;
     }
 
     private void writeSuccess(

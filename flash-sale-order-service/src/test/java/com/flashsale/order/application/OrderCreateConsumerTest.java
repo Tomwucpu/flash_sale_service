@@ -94,6 +94,11 @@ class OrderCreateConsumerTest {
                 .containsEntry("status", "ASSIGNED")
                 .containsEntry("assigned_user_id", 2001L)
                 .containsEntry("assigned_order_id", order.get("id"));
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(9);
 
         ArgumentCaptor<Map<String, Object>> resultCaptor = ArgumentCaptor.forClass(Map.class);
         verify(hashOperations).putAll(eq(RedisKeys.seckillResult(activityId, 2001L)), resultCaptor.capture());
@@ -127,6 +132,11 @@ class OrderCreateConsumerTest {
                 .containsEntry("status", "ASSIGNED")
                 .containsEntry("assigned_user_id", 2002L)
                 .containsEntry("assigned_order_id", order.get("id"));
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(9);
     }
 
     @Test
@@ -165,6 +175,11 @@ class OrderCreateConsumerTest {
                 .containsEntry("orderNo", "SO202604190004")
                 .containsEntry("message", "兑换码不足")
                 .containsEntry("code", "");
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(10);
         verify(valueOperations).increment(RedisKeys.seckillStock(activityId));
         verify(valueOperations).decrement(RedisKeys.seckillLimit(activityId, 2004L));
     }
@@ -201,6 +216,11 @@ class OrderCreateConsumerTest {
                 .containsEntry("orderNo", "")
                 .containsEntry("message", "订单处理失败")
                 .containsEntry("code", "");
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(10);
         verify(valueOperations).increment(RedisKeys.seckillStock(activityId));
         verify(valueOperations).decrement(RedisKeys.seckillLimit(activityId, 2005L));
     }
@@ -229,6 +249,11 @@ class OrderCreateConsumerTest {
                 .containsEntry("orderNo", "SO202604190006")
                 .containsEntry("message", "待支付")
                 .containsEntry("code", "");
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(9);
         verify(valueOperations, never()).increment(anyString());
         verify(valueOperations, never()).decrement(anyString());
     }

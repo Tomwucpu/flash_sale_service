@@ -25,17 +25,39 @@ public class OrderQueryController {
         this.orderProcessingService = orderProcessingService;
     }
 
+    @GetMapping
+    public ApiResponse<List<OrderQueryResponse>> queryOwnOrders(HttpServletRequest request) {
+        Long currentUserId = currentUserId();
+        List<OrderProcessingService.OrderDetailView> detailViews = orderProcessingService.queryOrdersByUser(currentUserId);
+        return ApiResponse.success(
+                request.getHeader(REQUEST_ID_HEADER),
+                toResponse(detailViews)
+        );
+    }
+
     @GetMapping("/activities/{activityId}")
     public ApiResponse<List<OrderQueryResponse>> queryByActivityId(
             @PathVariable Long activityId,
             HttpServletRequest request
     ) {
+        Long currentUserId = currentUserId();
+        List<OrderProcessingService.OrderDetailView> detailViews = orderProcessingService.queryOrdersByActivity(activityId, currentUserId);
+        return ApiResponse.success(
+                request.getHeader(REQUEST_ID_HEADER),
+                toResponse(detailViews)
+        );
+    }
+
+    private Long currentUserId() {
         UserContext userContext = UserContextHolder.get();
         if (userContext == null || userContext.userId() == null || userContext.userId() <= 0) {
             throw new UnauthorizedException("未登录或登录状态已失效");
         }
-        List<OrderProcessingService.OrderDetailView> detailViews = orderProcessingService.queryOrdersByActivity(activityId, userContext.userId());
-        List<OrderQueryResponse> response = detailViews.stream()
+        return userContext.userId();
+    }
+
+    private List<OrderQueryResponse> toResponse(List<OrderProcessingService.OrderDetailView> detailViews) {
+        return detailViews.stream()
                 .map(detailView -> new OrderQueryResponse(
                         detailView.orderNo(),
                         detailView.activityId(),
@@ -49,9 +71,5 @@ public class OrderQueryController {
                         detailView.updatedAt()
                 ))
                 .toList();
-        return ApiResponse.success(
-                request.getHeader(REQUEST_ID_HEADER),
-                response
-        );
     }
 }

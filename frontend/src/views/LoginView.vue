@@ -29,7 +29,7 @@ async function handleLogin() {
       message: `欢迎回来，${session.user.nickname || session.user.username}`,
       duration: 1500,
     })
-    await router.push(redirectPath || (authStore.isAdminLike ? '/admin/activities' : '/public/home'))
+    await router.push(redirectPath || (authStore.isAdminLike ? '/admin/activities' : '/user/orders'))
   } catch (error) {
     const message = error instanceof ApiClientError ? error.message : '登录失败，请检查后端服务是否已启动'
     ElMessage.error(message)
@@ -53,7 +53,7 @@ async function handleLogin() {
         <article class="flat-panel flat-panel--green">
           <UserRound :size="26" />
           <strong>USER</strong>
-          <span>用户侧浏览</span>
+          <span>订单后台</span>
         </article>
       </div>
     </section>

@@ -14,6 +14,7 @@ export interface RouteGuardDecision {
 export function evaluateRouteGuard(input: RouteGuardInput): RouteGuardDecision {
   const isAuthenticated = Boolean(input.accessToken)
   const isAdminRoute = input.path.startsWith('/admin')
+  const isUserRoute = input.path.startsWith('/user')
   const isAuthPage = input.path === '/login' || input.path === '/register'
   const isAdminLike =
     input.currentUser?.role === 'ADMIN' || input.currentUser?.role === 'PUBLISHER'
@@ -21,11 +22,11 @@ export function evaluateRouteGuard(input: RouteGuardInput): RouteGuardDecision {
   if (isAuthPage && isAuthenticated) {
     return {
       allow: false,
-      redirectTo: isAdminLike ? '/admin/activities' : '/public/home',
+      redirectTo: isAdminLike ? '/admin/activities' : '/user/orders',
     }
   }
 
-  if (isAdminRoute && !isAuthenticated) {
+  if ((isAdminRoute || isUserRoute) && !isAuthenticated) {
     return {
       allow: false,
       redirectTo: '/login',

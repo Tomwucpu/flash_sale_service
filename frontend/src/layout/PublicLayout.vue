@@ -9,7 +9,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const dashboardTarget = computed(() =>
-  authStore.isAdminLike ? '/admin/activities' : '/public/home',
+  authStore.isAdminLike ? '/admin/activities' : '/user/orders',
 )
 
 function handleLogout() {
@@ -25,8 +25,8 @@ function handleLogout() {
       <nav class="public-shell__nav">
         <RouterLink to="/public/home">首页</RouterLink>
         <RouterLink to="/public/activities">活动展示</RouterLink>
-        <RouterLink to="/register">用户注册</RouterLink>
-        <RouterLink to="/login">后台登录</RouterLink>
+        <RouterLink v-if="!authStore.isAuthenticated" to="/register">用户注册</RouterLink>
+        <RouterLink v-if="!authStore.isAuthenticated" to="/login">后台登录</RouterLink>
       </nav>
       <div class="public-shell__actions">
         <RouterLink v-if="authStore.isAuthenticated" class="public-shell__cta" :to="dashboardTarget">

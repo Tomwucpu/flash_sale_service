@@ -154,6 +154,73 @@ class OrderQueryControllerTest {
                 .andExpect(jsonPath("$.data[0].activityId").value(activityId1));
     }
 
+    @Test
+    void ownerCanQueryAllOwnOrdersAcrossActivities() throws Exception {
+        Long activityId1 = insertActivity();
+        Long activityId2 = insertActivity();
+        Long olderOrderId = insertOrder(
+                "SO202604210001",
+                activityId1,
+                3001L,
+                "CONFIRMED",
+                "NO_NEED",
+                "ISSUED",
+                BigDecimal.ZERO,
+                null,
+                LocalDateTime.of(2026, 4, 21, 9, 5)
+        );
+        insertAssignedCode(activityId1, olderOrderId, 3001L, "ALL-ORDER-CODE-001");
+        insertOrder(
+                "SO202604210002",
+                activityId2,
+                3001L,
+                "CLOSED",
+                "CLOSED",
+                "PENDING",
+                new BigDecimal("19.90"),
+                "PAYMENT_TIMEOUT",
+                LocalDateTime.of(2026, 4, 21, 10, 15)
+        );
+        insertOrder(
+                "SO202604210003",
+                activityId2,
+                3002L,
+                "CONFIRMED",
+                "PAID",
+                "ISSUED",
+                new BigDecimal("49.90"),
+                null,
+                LocalDateTime.of(2026, 4, 21, 11, 20)
+        );
+
+        mockMvc.perform(get("/api/orders")
+                        .header(UserContext.USER_ID_HEADER, 3001L)
+                        .header(UserContext.USERNAME_HEADER, "buyer")
+                        .header(UserContext.ROLE_HEADER, "USER")
+                        .header("X-Request-Id", "REQ-ORDER-ALL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.requestId").value("REQ-ORDER-ALL"))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].orderNo").value("SO202604210002"))
+                .andExpect(jsonPath("$.data[0].activityId").value(activityId2))
+                .andExpect(jsonPath("$.data[0].userId").value(3001L))
+                .andExpect(jsonPath("$.data[0].orderStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.data[0].payStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.data[0].codeStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data[0].priceAmount").value(19.90))
+                .andExpect(jsonPath("$.data[0].failReason").value("PAYMENT_TIMEOUT"))
+                .andExpect(jsonPath("$.data[0].code").doesNotExist())
+                .andExpect(jsonPath("$.data[1].orderNo").value("SO202604210001"))
+                .andExpect(jsonPath("$.data[1].activityId").value(activityId1))
+                .andExpect(jsonPath("$.data[1].orderStatus").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data[1].payStatus").value("NO_NEED"))
+                .andExpect(jsonPath("$.data[1].codeStatus").value("ISSUED"))
+                .andExpect(jsonPath("$.data[1].priceAmount").value(0))
+                .andExpect(jsonPath("$.data[1].failReason").doesNotExist())
+                .andExpect(jsonPath("$.data[1].code").value("ALL-ORDER-CODE-001"));
+    }
+
     private Long insertActivity() {
         jdbcTemplate.update("""
                         insert into activity_product (

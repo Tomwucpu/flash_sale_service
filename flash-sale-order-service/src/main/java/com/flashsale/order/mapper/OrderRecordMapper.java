@@ -41,4 +41,13 @@ public interface OrderRecordMapper extends BaseMapper<OrderRecordEntity> {
             @Param("activityId") Long activityId,
             @Param("userId") Long userId
     );
+
+    @Select("""
+            select *
+            from order_record
+            where user_id = #{userId}
+              and is_deleted = 0
+            order by updated_at desc, id desc
+            """)
+    List<OrderRecordEntity> findByUserId(@Param("userId") Long userId);
 }

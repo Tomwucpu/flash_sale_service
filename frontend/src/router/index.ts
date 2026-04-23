@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AdminLayout from '@/layout/AdminLayout.vue'
 import PublicLayout from '@/layout/PublicLayout.vue'
+import UserLayout from '@/layout/UserLayout.vue'
 import { evaluateRouteGuard } from '@/router/guards'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -66,6 +67,21 @@ const router = createRouter({
           path: 'activities/:id/edit',
           component: () => import('@/views/admin/ActivityEditorView.vue'),
           meta: { title: '编辑活动' },
+        },
+      ],
+    },
+    {
+      path: '/user',
+      component: UserLayout,
+      children: [
+        {
+          path: '',
+          redirect: '/user/orders',
+        },
+        {
+          path: 'orders',
+          component: () => import('@/views/user/UserOrderListView.vue'),
+          meta: { title: '我的订单' },
         },
       ],
     },

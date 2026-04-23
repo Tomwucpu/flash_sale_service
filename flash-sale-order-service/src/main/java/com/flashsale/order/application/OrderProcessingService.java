@@ -214,6 +214,15 @@ public class OrderProcessingService {
 
     public List<OrderDetailView> queryOrdersByActivity(Long activityId, Long currentUserId) {
         List<OrderRecordEntity> orders = orderRecordMapper.findByActivityIdAndUserId(activityId, currentUserId);
+        return toOrderDetailViews(orders);
+    }
+
+    public List<OrderDetailView> queryOrdersByUser(Long currentUserId) {
+        List<OrderRecordEntity> orders = orderRecordMapper.findByUserId(currentUserId);
+        return toOrderDetailViews(orders);
+    }
+
+    private List<OrderDetailView> toOrderDetailViews(List<OrderRecordEntity> orders) {
         if (orders.isEmpty()) {
             return List.of();
         }

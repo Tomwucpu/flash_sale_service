@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 @Mapper
 public interface OrderRecordMapper extends BaseMapper<OrderRecordEntity> {
 
@@ -26,4 +28,17 @@ public interface OrderRecordMapper extends BaseMapper<OrderRecordEntity> {
             limit 1
             """)
     OrderRecordEntity findByOrderNo(@Param("orderNo") String orderNo);
+
+    @Select("""
+            select *
+            from order_record
+            where activity_id = #{activityId}
+              and user_id = #{userId}
+              and is_deleted = 0
+            order by updated_at desc, id desc
+            """)
+    List<OrderRecordEntity> findByActivityIdAndUserId(
+            @Param("activityId") Long activityId,
+            @Param("userId") Long userId
+    );
 }

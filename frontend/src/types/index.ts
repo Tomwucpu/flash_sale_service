@@ -108,15 +108,6 @@ export interface OrderDetail {
   codeStatus: string
   priceAmount: number
   failReason: string | null
-  updatedAt: string
-}
-
-export interface OrderCodeDetail {
-  orderNo: string
-  activityId: number
-  orderStatus: string
-  payStatus: string
-  codeStatus: string
   code: string | null
   updatedAt: string
 }

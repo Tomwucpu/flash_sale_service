@@ -18,7 +18,9 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -192,45 +194,28 @@ public class OrderProcessingService {
         writeFailure(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), FailureReason.PAYMENT_TIMEOUT, activity);
     }
 
-    public OrderCodeView queryOrderCode(String orderNo, Long currentUserId) {
-        OrderRecordEntity order = orderRecordMapper.findByOrderNo(orderNo);
-        if (order == null) {
-            throw new IllegalArgumentException("订单不存在");
+    public List<OrderDetailView> queryOrdersByActivity(Long activityId, Long currentUserId) {
+        List<OrderRecordEntity> orders = orderRecordMapper.findByActivityIdAndUserId(activityId, currentUserId);
+        if (orders.isEmpty()) {
+            return List.of();
         }
-        if (!order.getUserId().equals(currentUserId)) {
-            throw new com.flashsale.common.security.exception.ForbiddenException("无权查看该订单");
+        List<OrderDetailView> views = new ArrayList<>(orders.size());
+        for (OrderRecordEntity order : orders) {
+            RedeemCodeEntity redeemCode = redeemCodeMapper.findByAssignedOrderId(order.getId());
+            views.add(new OrderDetailView(
+                    order.getOrderNo(),
+                    order.getActivityId(),
+                    order.getUserId(),
+                    order.getOrderStatus(),
+                    order.getPayStatus(),
+                    order.getCodeStatus(),
+                    order.getPriceAmount(),
+                    order.getFailReason(),
+                    redeemCode == null ? null : redeemCode.getCode(),
+                    order.getUpdatedAt()
+            ));
         }
-        RedeemCodeEntity redeemCode = redeemCodeMapper.findByAssignedOrderId(order.getId());
-        return new OrderCodeView(
-                order.getOrderNo(),
-                order.getActivityId(),
-                order.getOrderStatus(),
-                order.getPayStatus(),
-                order.getCodeStatus(),
-                redeemCode == null ? null : redeemCode.getCode(),
-                order.getUpdatedAt()
-        );
-    }
-
-    public OrderDetailView queryOrder(String orderNo, Long currentUserId) {
-        OrderRecordEntity order = orderRecordMapper.findByOrderNo(orderNo);
-        if (order == null) {
-            throw new IllegalArgumentException("订单不存在");
-        }
-        if (!order.getUserId().equals(currentUserId)) {
-            throw new com.flashsale.common.security.exception.ForbiddenException("无权查看该订单");
-        }
-        return new OrderDetailView(
-                order.getOrderNo(),
-                order.getActivityId(),
-                order.getUserId(),
-                order.getOrderStatus(),
-                order.getPayStatus(),
-                order.getCodeStatus(),
-                order.getPriceAmount(),
-                order.getFailReason(),
-                order.getUpdatedAt()
-        );
+        return views;
     }
 
     private ActivityProductEntity loadActivity(Long activityId) {
@@ -462,17 +447,6 @@ public class OrderProcessingService {
         }
     }
 
-    public record OrderCodeView(
-            String orderNo,
-            Long activityId,
-            String orderStatus,
-            String payStatus,
-            String codeStatus,
-            String code,
-            LocalDateTime updatedAt
-    ) {
-    }
-
     public record OrderDetailView(
             String orderNo,
             Long activityId,
@@ -482,6 +456,7 @@ public class OrderProcessingService {
             String codeStatus,
             BigDecimal priceAmount,
             String failReason,
+            String code,
             LocalDateTime updatedAt
     ) {
     }

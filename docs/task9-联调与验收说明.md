@@ -47,16 +47,14 @@ python scripts/task9/task9_acceptance.py smoke
 4. 使用 `buyer` 走完整免费链路：
    - 秒杀
    - 轮询结果
-   - 查询订单
-   - 查询兑换码
+   - 按活动查询订单与兑换码列表
 5. 使用 `buyer` 走完整支付链路：
    - 秒杀
    - 轮询待支付
    - 创建支付单
    - 支付回调
    - 轮询成功结果
-   - 查询订单
-   - 查询兑换码
+   - 按活动查询订单与兑换码列表
 6. 使用 `publisher` 发起导出并下载导出文件
 
 输出位置：
@@ -101,14 +99,14 @@ logs/task9/load-时间戳/task9-load-test-report.json
 - `result.status = SUCCESS`
 - `order.payStatus = NO_NEED`
 - `order.codeStatus = ISSUED`
-- 兑换码可按订单号查到
+- 订单记录中的 `code` 字段可查到兑换码
 
 支付链路至少确认：
 
 - 首次结果为 `PENDING_PAYMENT`
 - 回调后结果转为 `SUCCESS`
 - `order.payStatus = PAID`
-- 兑换码最终可查
+- 订单记录中的 `code` 字段最终可查
 
 导出链路至少确认：
 

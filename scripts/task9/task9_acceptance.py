@@ -249,26 +249,23 @@ def poll_result(
     raise RuntimeError(f"poll result timeout for activity {activity_id}")
 
 
-def query_order(client: FlashSaleClient, token: str, order_no: str) -> dict[str, Any]:
+def query_activity_orders(client: FlashSaleClient, token: str, activity_id: int) -> list[dict[str, Any]]:
     result = client.request_json(
         "GET",
-        f"/api/orders/{parse.quote(order_no)}",
+        f"/api/orders/activities/{activity_id}",
         token=token,
-        request_id=f"ORDER-{order_no}-{uuid.uuid4().hex[:8]}",
+        request_id=f"ORDER-ACTIVITY-{activity_id}-{uuid.uuid4().hex[:8]}",
     )
-    body = assert_success(result, f"query order {order_no}")
-    return body["data"]
+    body = assert_success(result, f"query activity orders {activity_id}")
+    data = body.get("data")
+    return data if isinstance(data, list) else []
 
 
-def query_code(client: FlashSaleClient, token: str, order_no: str) -> dict[str, Any]:
-    result = client.request_json(
-        "GET",
-        f"/api/codes/orders/{parse.quote(order_no)}",
-        token=token,
-        request_id=f"CODE-{order_no}-{uuid.uuid4().hex[:8]}",
-    )
-    body = assert_success(result, f"query code {order_no}")
-    return body["data"]
+def find_order_in_list(orders: list[dict[str, Any]], order_no: str) -> dict[str, Any]:
+    for order in orders:
+        if order.get("orderNo") == order_no:
+            return order
+    raise RuntimeError(f"order {order_no} not found in activity order list")
 
 
 def create_payment(client: FlashSaleClient, token: str, order_no: str) -> dict[str, Any]:
@@ -368,8 +365,9 @@ def write_smoke_markdown(path: Path, report: dict[str, Any]) -> None:
         "",
         f"- 秒杀结果：`{free_flow['result']['status']}`",
         f"- 订单号：`{free_flow['result']['orderNo']}`",
+        f"- 活动订单总数：`{len(free_flow['allOrders'])}`",
         f"- 订单状态：`{free_flow['order']['orderStatus']}` / `payStatus={free_flow['order']['payStatus']}` / `codeStatus={free_flow['order']['codeStatus']}`",
-        f"- 兑换码：`{free_flow['code']['code']}`",
+        f"- 兑换码：`{free_flow['order'].get('code')}`",
         "",
         "## 支付链路",
         "",
@@ -377,8 +375,9 @@ def write_smoke_markdown(path: Path, report: dict[str, Any]) -> None:
         f"- 订单号：`{paid_flow['pendingResult']['orderNo']}`",
         f"- 支付单：`{paid_flow['payment']['transactionNo']}`",
         f"- 回调后状态：`{paid_flow['successResult']['status']}`",
+        f"- 活动订单总数：`{len(paid_flow['allOrders'])}`",
         f"- 订单状态：`{paid_flow['order']['orderStatus']}` / `payStatus={paid_flow['order']['payStatus']}` / `codeStatus={paid_flow['order']['codeStatus']}`",
-        f"- 兑换码：`{paid_flow['code']['code']}`",
+        f"- 兑换码：`{paid_flow['order'].get('code')}`",
         "",
         "## 导出链路",
         "",
@@ -429,16 +428,16 @@ def run_smoke(args: argparse.Namespace) -> None:
 
     free_attempt = attempt_seckill(client, buyer_token, free_activity["id"], f"FREE-{uuid.uuid4().hex[:8]}")
     free_result = poll_result(client, buyer_token, free_activity["id"], {"SUCCESS"})
-    free_order = query_order(client, buyer_token, free_result["orderNo"])
-    free_code = query_code(client, buyer_token, free_result["orderNo"])
+    free_orders = query_activity_orders(client, buyer_token, free_activity["id"])
+    free_order = find_order_in_list(free_orders, free_result["orderNo"])
 
     paid_attempt = attempt_seckill(client, buyer_token, paid_activity["id"], f"PAID-{uuid.uuid4().hex[:8]}")
     paid_pending = poll_result(client, buyer_token, paid_activity["id"], {"PENDING_PAYMENT"})
     create_payment_result = create_payment(client, buyer_token, paid_pending["orderNo"])
     callback_payment(client, buyer_token, paid_pending["orderNo"], create_payment_result["transactionNo"])
     paid_success = poll_result(client, buyer_token, paid_activity["id"], {"SUCCESS"})
-    paid_order = query_order(client, buyer_token, paid_success["orderNo"])
-    paid_code = query_code(client, buyer_token, paid_success["orderNo"])
+    paid_orders = query_activity_orders(client, buyer_token, paid_activity["id"])
+    paid_order = find_order_in_list(paid_orders, paid_success["orderNo"])
 
     export_task = create_export_task(client, publisher_token, paid_activity["id"])
     export_status = poll_export_task(client, publisher_token, export_task["id"])
@@ -470,16 +469,16 @@ def run_smoke(args: argparse.Namespace) -> None:
         "freeFlow": {
             "attempt": free_attempt,
             "result": free_result,
+            "allOrders": free_orders,
             "order": free_order,
-            "code": free_code,
         },
         "paidFlow": {
             "attempt": paid_attempt,
             "pendingResult": paid_pending,
             "payment": create_payment_result,
             "successResult": paid_success,
+            "allOrders": paid_orders,
             "order": paid_order,
-            "code": paid_code,
         },
         "exportFlow": {
             "task": export_task,

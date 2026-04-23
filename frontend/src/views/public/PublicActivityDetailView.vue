@@ -9,7 +9,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDisplayDateTime } from '@/utils/date'
 import { getCodeSourceModeLabel, getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
-import type { ActivityDetail, OrderCodeDetail, OrderDetail, PaymentOrder, SeckillResult } from '@/types'
+import type { ActivityDetail, OrderDetail, PaymentOrder, SeckillResult } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,12 +24,10 @@ const resultRefreshing = ref(false)
 const paymentCreating = ref(false)
 const paymentCallbackSubmitting = ref(false)
 const orderQuerying = ref(false)
-const codeQuerying = ref(false)
 
 const seckillResult = ref<SeckillResult | null>(null)
 const paymentOrder = ref<PaymentOrder | null>(null)
-const orderDetail = ref<OrderDetail | null>(null)
-const orderCodeDetail = ref<OrderCodeDetail | null>(null)
+const activityOrders = ref<OrderDetail[]>([])
 
 let pollingTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -144,8 +142,6 @@ async function refreshSeckillResult(options: { silent?: boolean } = {}) {
     seckillResult.value = latest
     if (!latest.orderNo) {
       paymentOrder.value = null
-      orderDetail.value = null
-      orderCodeDetail.value = null
     }
     return latest
   } catch (error) {
@@ -207,6 +203,9 @@ async function handleAttemptSeckill() {
 
 async function handleRefreshResult() {
   const latest = await refreshSeckillResult()
+  if (isAuthenticated.value) {
+    await handleQueryOrders({ silent: true })
+  }
   if (shouldPoll(latest?.status)) {
     schedulePolling()
     return
@@ -255,6 +254,7 @@ async function handlePaymentCallback() {
       schedulePolling()
       return
     }
+    await handleQueryOrders({ silent: true })
     stopPolling()
   } catch (error) {
     const message = error instanceof ApiClientError ? error.message : '模拟支付回调失败'
@@ -264,40 +264,28 @@ async function handlePaymentCallback() {
   }
 }
 
-async function handleQueryOrder() {
-  if (!currentOrderNo.value) {
-    ElMessage.error('当前没有订单号')
+async function handleQueryOrders(options: { silent?: boolean } = {}) {
+  if (!isAuthenticated.value) {
+    activityOrders.value = []
+    if (!options.silent) {
+      ElMessage.warning('请先登录后查看订单')
+    }
     return
   }
-
   orderQuerying.value = true
   try {
-    orderDetail.value = await seckillApi.queryOrder(currentOrderNo.value)
-    ElMessage.success('订单详情已刷新')
+    activityOrders.value = await seckillApi.queryActivityOrders(activityId.value)
+    if (!options.silent) {
+      ElMessage.success('订单与兑换码已刷新')
+    }
   } catch (error) {
-    const message = error instanceof ApiClientError ? error.message : '订单详情查询失败'
-    ElMessage.error(message)
-  } finally {
-    orderQuerying.value = false
+    activityOrders.value = []
+    if (!options.silent) {
+      const message = error instanceof ApiClientError ? error.message : '订单与兑换码查询失败'
+      ElMessage.error(message)
+    }
   }
-}
-
-async function handleQueryCode() {
-  if (!currentOrderNo.value) {
-    ElMessage.error('当前没有订单号')
-    return
-  }
-
-  codeQuerying.value = true
-  try {
-    orderCodeDetail.value = await seckillApi.queryOrderCode(currentOrderNo.value)
-    ElMessage.success('兑换码信息已刷新')
-  } catch (error) {
-    const message = error instanceof ApiClientError ? error.message : '兑换码查询失败'
-    ElMessage.error(message)
-  } finally {
-    codeQuerying.value = false
-  }
+  orderQuerying.value = false
 }
 
 watch(
@@ -307,12 +295,12 @@ watch(
       stopPolling()
       seckillResult.value = null
       paymentOrder.value = null
-      orderDetail.value = null
-      orderCodeDetail.value = null
+      activityOrders.value = []
       return
     }
 
     const latest = await refreshSeckillResult({ silent: true })
+    await handleQueryOrders({ silent: true })
     if (shouldPoll(latest?.status)) {
       schedulePolling()
     }
@@ -323,14 +311,15 @@ watch(
   () => currentOrderNo.value,
   () => {
     paymentOrder.value = null
-    orderDetail.value = null
-    orderCodeDetail.value = null
   },
 )
 
 onMounted(async () => {
   await loadDetail()
   const latest = await refreshSeckillResult({ silent: true })
+  if (isAuthenticated.value) {
+    await handleQueryOrders({ silent: true })
+  }
   if (shouldPoll(latest?.status)) {
     schedulePolling()
   }
@@ -450,47 +439,35 @@ onBeforeUnmount(() => {
         </div>
       </article>
 
-      <article class="flat-panel order-panel" v-if="currentOrderNo">
+      <article class="flat-panel order-panel" v-if="isAuthenticated">
         <div class="order-panel__header">
           <div>
             <div class="eyebrow">Order</div>
-            <h3 class="order-panel__title">订单与兑换码查询</h3>
+            <h3 class="order-panel__title">订单与兑换码列表</h3>
           </div>
           <div class="order-panel__actions">
-            <button class="flat-button flat-button--ghost" type="button" :disabled="orderQuerying" @click="handleQueryOrder">
-              {{ orderQuerying ? '查询中...' : '刷新订单详情' }}
-            </button>
-            <button class="flat-button flat-button--ghost" type="button" :disabled="codeQuerying" @click="handleQueryCode">
-              {{ codeQuerying ? '查询中...' : '刷新兑换码信息' }}
+            <button class="flat-button flat-button--ghost" type="button" :disabled="orderQuerying" @click="handleQueryOrders()">
+              {{ orderQuerying ? '查询中...' : '刷新订单与兑换码' }}
             </button>
           </div>
         </div>
 
-        <div class="order-panel__empty" v-if="!orderDetail && !orderCodeDetail">
-          可按需查询订单详情与兑换码信息。
+        <div class="order-panel__empty" v-if="!activityOrders.length">
+          当前活动暂无订单记录。
         </div>
 
         <div class="flat-grid flat-grid--2" v-else>
-          <article class="flat-panel flat-panel--soft" v-if="orderDetail">
-            <div class="eyebrow">Order Detail</div>
+          <article class="flat-panel flat-panel--soft" v-for="order in activityOrders" :key="order.orderNo">
+            <div class="eyebrow">Order</div>
             <div class="meta-list">
-              <div class="meta-row"><span>订单号</span><strong>{{ orderDetail.orderNo }}</strong></div>
-              <div class="meta-row"><span>订单状态</span><strong>{{ orderDetail.orderStatus }}</strong></div>
-              <div class="meta-row"><span>支付状态</span><strong>{{ orderDetail.payStatus }}</strong></div>
-              <div class="meta-row"><span>兑换码状态</span><strong>{{ orderDetail.codeStatus }}</strong></div>
-              <div class="meta-row"><span>订单金额</span><strong>{{ orderDetail.priceAmount }}</strong></div>
-              <div class="meta-row"><span>失败原因</span><strong>{{ orderDetail.failReason || '-' }}</strong></div>
-            </div>
-          </article>
-
-          <article class="flat-panel flat-panel--soft" v-if="orderCodeDetail">
-            <div class="eyebrow">Redeem Code</div>
-            <div class="meta-list">
-              <div class="meta-row"><span>订单号</span><strong>{{ orderCodeDetail.orderNo }}</strong></div>
-              <div class="meta-row"><span>订单状态</span><strong>{{ orderCodeDetail.orderStatus }}</strong></div>
-              <div class="meta-row"><span>支付状态</span><strong>{{ orderCodeDetail.payStatus }}</strong></div>
-              <div class="meta-row"><span>发码状态</span><strong>{{ orderCodeDetail.codeStatus }}</strong></div>
-              <div class="meta-row"><span>兑换码</span><strong>{{ orderCodeDetail.code || '-' }}</strong></div>
+              <div class="meta-row"><span>订单号</span><strong>{{ order.orderNo }}</strong></div>
+              <div class="meta-row"><span>订单状态</span><strong>{{ order.orderStatus }}</strong></div>
+              <div class="meta-row"><span>支付状态</span><strong>{{ order.payStatus }}</strong></div>
+              <div class="meta-row"><span>兑换码状态</span><strong>{{ order.codeStatus }}</strong></div>
+              <div class="meta-row"><span>订单金额</span><strong>{{ order.priceAmount }}</strong></div>
+              <div class="meta-row"><span>兑换码</span><strong>{{ order.code || '-' }}</strong></div>
+              <div class="meta-row"><span>失败原因</span><strong>{{ order.failReason || '-' }}</strong></div>
+              <div class="meta-row"><span>更新时间</span><strong>{{ formatDisplayDateTime(order.updatedAt) }}</strong></div>
             </div>
           </article>
         </div>

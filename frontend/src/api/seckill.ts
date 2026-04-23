@@ -1,7 +1,6 @@
 import { http } from '@/api/http'
 import type {
   ApiResponse,
-  OrderCodeDetail,
   OrderDetail,
   PaymentCallbackPayload,
   PaymentOrder,
@@ -24,10 +23,7 @@ export const seckillApi = {
   callbackPayment(payload: PaymentCallbackPayload) {
     return http.post<PaymentOrder>('/api/payments/callback', payload)
   },
-  queryOrder(orderNo: string) {
-    return http.get<OrderDetail>(`/api/orders/${orderNo}`)
-  },
-  queryOrderCode(orderNo: string) {
-    return http.get<OrderCodeDetail>(`/api/codes/orders/${orderNo}`)
+  queryActivityOrders(activityId: number) {
+    return http.get<OrderDetail[]>(`/api/orders/activities/${activityId}`)
   },
 }

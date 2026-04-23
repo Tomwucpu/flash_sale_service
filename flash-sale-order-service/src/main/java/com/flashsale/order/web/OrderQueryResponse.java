@@ -15,6 +15,7 @@ public record OrderQueryResponse(
         String codeStatus,
         BigDecimal priceAmount,
         String failReason,
+        String code,
         LocalDateTime updatedAt
 ) {
 }

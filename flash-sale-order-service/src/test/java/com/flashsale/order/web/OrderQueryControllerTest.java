@@ -12,6 +12,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -36,11 +37,44 @@ class OrderQueryControllerTest {
     }
 
     @Test
-    void ownerCanQueryOwnOrderDetail() throws Exception {
+    void ownerCanQueryAllOrdersInActivityWithCode() throws Exception {
         Long activityId = insertActivity();
-        insertOrder("SO202604200001", activityId, 3001L, "CONFIRMED", "PAID", "ISSUED", new BigDecimal("29.90"), null);
+        Long orderId1 = insertOrder(
+                "SO202604200001",
+                activityId,
+                3001L,
+                "CONFIRMED",
+                "PAID",
+                "ISSUED",
+                new BigDecimal("29.90"),
+                null,
+                LocalDateTime.of(2026, 4, 20, 10, 5)
+        );
+        insertAssignedCode(activityId, orderId1, 3001L, "QUERY-CODE-001");
+        insertOrder(
+                "SO202604200002",
+                activityId,
+                3001L,
+                "CLOSED",
+                "CLOSED",
+                "PENDING",
+                new BigDecimal("9.90"),
+                "PAYMENT_TIMEOUT",
+                LocalDateTime.of(2026, 4, 20, 10, 15)
+        );
+        insertOrder(
+                "SO202604200003",
+                activityId,
+                3002L,
+                "CONFIRMED",
+                "PAID",
+                "ISSUED",
+                new BigDecimal("9.90"),
+                null,
+                LocalDateTime.of(2026, 4, 20, 10, 20)
+        );
 
-        mockMvc.perform(get("/api/orders/{orderNo}", "SO202604200001")
+        mockMvc.perform(get("/api/orders/activities/{activityId}", activityId)
                         .header(UserContext.USER_ID_HEADER, 3001L)
                         .header(UserContext.USERNAME_HEADER, "buyer")
                         .header(UserContext.ROLE_HEADER, "USER")
@@ -48,41 +82,76 @@ class OrderQueryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.requestId").value("REQ-ORDER-001"))
-                .andExpect(jsonPath("$.data.orderNo").value("SO202604200001"))
-                .andExpect(jsonPath("$.data.activityId").value(activityId))
-                .andExpect(jsonPath("$.data.userId").value(3001L))
-                .andExpect(jsonPath("$.data.orderStatus").value("CONFIRMED"))
-                .andExpect(jsonPath("$.data.payStatus").value("PAID"))
-                .andExpect(jsonPath("$.data.codeStatus").value("ISSUED"))
-                .andExpect(jsonPath("$.data.priceAmount").value(29.90))
-                .andExpect(jsonPath("$.data.failReason").doesNotExist());
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].orderNo").value("SO202604200002"))
+                .andExpect(jsonPath("$.data[0].activityId").value(activityId))
+                .andExpect(jsonPath("$.data[0].userId").value(3001L))
+                .andExpect(jsonPath("$.data[0].orderStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.data[0].payStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.data[0].codeStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data[0].priceAmount").value(9.90))
+                .andExpect(jsonPath("$.data[0].failReason").value("PAYMENT_TIMEOUT"))
+                .andExpect(jsonPath("$.data[0].code").doesNotExist())
+                .andExpect(jsonPath("$.data[1].orderNo").value("SO202604200001"))
+                .andExpect(jsonPath("$.data[1].orderStatus").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data[1].payStatus").value("PAID"))
+                .andExpect(jsonPath("$.data[1].codeStatus").value("ISSUED"))
+                .andExpect(jsonPath("$.data[1].priceAmount").value(29.90))
+                .andExpect(jsonPath("$.data[1].failReason").doesNotExist())
+                .andExpect(jsonPath("$.data[1].code").value("QUERY-CODE-001"));
     }
 
     @Test
-    void unknownOrderReturnsBusinessNotFound() throws Exception {
-        mockMvc.perform(get("/api/orders/{orderNo}", "SO404")
+    void noOrderInActivityReturnsEmptyList() throws Exception {
+        Long activityId = insertActivity();
+
+        mockMvc.perform(get("/api/orders/activities/{activityId}", activityId)
                         .header(UserContext.USER_ID_HEADER, 3001L)
                         .header(UserContext.USERNAME_HEADER, "buyer")
                         .header(UserContext.ROLE_HEADER, "USER")
                         .header("X-Request-Id", "REQ-ORDER-002"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"))
-                .andExpect(jsonPath("$.message").value("订单不存在"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
-    void nonOwnerQueryIsRejected() throws Exception {
-        Long activityId = insertActivity();
-        insertOrder("SO202604200002", activityId, 3001L, "CLOSED", "CLOSED", "PENDING", new BigDecimal("9.90"), "PAYMENT_TIMEOUT");
+    void onlyCurrentActivityOrdersAreReturned() throws Exception {
+        Long activityId1 = insertActivity();
+        Long activityId2 = insertActivity();
+        insertOrder(
+                "SO202604200101",
+                activityId1,
+                3001L,
+                "CONFIRMED",
+                "PAID",
+                "ISSUED",
+                new BigDecimal("19.90"),
+                null,
+                LocalDateTime.of(2026, 4, 20, 10, 5)
+        );
+        insertOrder(
+                "SO202604200102",
+                activityId2,
+                3001L,
+                "CONFIRMED",
+                "PAID",
+                "ISSUED",
+                new BigDecimal("39.90"),
+                null,
+                LocalDateTime.of(2026, 4, 20, 10, 15)
+        );
 
-        mockMvc.perform(get("/api/orders/{orderNo}", "SO202604200002")
-                        .header(UserContext.USER_ID_HEADER, 3002L)
-                        .header(UserContext.USERNAME_HEADER, "other-buyer")
+        mockMvc.perform(get("/api/orders/activities/{activityId}", activityId1)
+                        .header(UserContext.USER_ID_HEADER, 3001L)
+                        .header(UserContext.USERNAME_HEADER, "buyer")
                         .header(UserContext.ROLE_HEADER, "USER")
                         .header("X-Request-Id", "REQ-ORDER-003"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value("无权查看该订单"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].orderNo").value("SO202604200101"))
+                .andExpect(jsonPath("$.data[0].activityId").value(activityId1));
     }
 
     private Long insertActivity() {
@@ -109,7 +178,7 @@ class OrderQueryControllerTest {
         return jdbcTemplate.queryForObject("select max(id) from activity_product", Long.class);
     }
 
-    private void insertOrder(
+    private Long insertOrder(
             String orderNo,
             Long activityId,
             Long userId,
@@ -117,13 +186,14 @@ class OrderQueryControllerTest {
             String payStatus,
             String codeStatus,
             BigDecimal priceAmount,
-            String failReason
+            String failReason,
+            LocalDateTime updatedAt
     ) {
         jdbcTemplate.update("""
                         insert into order_record (
                           order_no, activity_id, user_id, request_id, purchase_unique_key, order_status,
                           pay_status, code_status, price_amount, fail_reason, updated_at, is_deleted
-                        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TIMESTAMP '2026-04-20 10:05:00', 0)
+                        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                         """,
                 orderNo,
                 activityId,
@@ -134,7 +204,22 @@ class OrderQueryControllerTest {
                 payStatus,
                 codeStatus,
                 priceAmount,
-                failReason
+                failReason,
+                updatedAt
+        );
+        return jdbcTemplate.queryForObject("select max(id) from order_record", Long.class);
+    }
+
+    private void insertAssignedCode(Long activityId, Long orderId, Long userId, String code) {
+        jdbcTemplate.update("""
+                        insert into redeem_code (
+                          activity_id, code, source_type, status, assigned_user_id, assigned_order_id, assigned_at, is_deleted
+                        ) values (?, ?, 'SYSTEM_GENERATED', 'ASSIGNED', ?, ?, TIMESTAMP '2026-04-20 10:05:00', 0)
+                        """,
+                activityId,
+                code,
+                userId,
+                orderId
         );
     }
 }

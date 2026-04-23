@@ -57,6 +57,26 @@ async function request<T>(config: AxiosRequestConfig) {
   }
 }
 
+async function requestEnvelope<T>(config: AxiosRequestConfig) {
+  try {
+    const response = await axiosClient.request<ApiResponse<T>>(config)
+    if (response.status === 401) {
+      handleUnauthorized()
+    }
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.data) {
+      const data = error.response.data as ApiResponse<T>
+      if (error.response.status === 401) {
+        handleUnauthorized()
+      }
+      throw new ApiClientError(data.message, data.code, error.response.status, data.requestId)
+    }
+
+    throw new ApiClientError('网络请求失败', 'SYSTEM_ERROR', 500, null)
+  }
+}
+
 export const http = {
   get<T>(url: string, config?: AxiosRequestConfig) {
     return request<T>({
@@ -67,6 +87,14 @@ export const http = {
   },
   post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return request<T>({
+      ...config,
+      method: 'POST',
+      url,
+      data,
+    })
+  },
+  postEnvelope<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return requestEnvelope<T>({
       ...config,
       method: 'POST',
       url,
@@ -85,6 +113,13 @@ export const http = {
     return request<T>({
       ...config,
       method: 'DELETE',
+      url,
+    })
+  },
+  getEnvelope<T>(url: string, config?: AxiosRequestConfig) {
+    return requestEnvelope<T>({
+      ...config,
+      method: 'GET',
       url,
     })
   },

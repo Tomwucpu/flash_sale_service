@@ -1,4 +1,10 @@
-export type ApiCode = 'SUCCESS' | 'INVALID_ARGUMENT' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'SYSTEM_ERROR'
+export type ApiCode =
+  | 'SUCCESS'
+  | 'INVALID_ARGUMENT'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'SYSTEM_ERROR'
+  | (string & {})
 
 export interface ApiResponse<T> {
   code: ApiCode
@@ -66,6 +72,53 @@ export interface ActivityDetail extends ActivitySummary {
   purchaseLimitType: PurchaseLimitType
   purchaseLimitCount: number
   codeSourceMode: CodeSourceMode
+}
+
+export interface SeckillAttemptResponse {
+  activityId: number
+  status: string
+}
+
+export interface SeckillResult {
+  status: string
+  orderNo: string | null
+  message: string | null
+  code: string | null
+  updatedAt: string | null
+}
+
+export interface PaymentOrder {
+  orderNo: string
+  transactionNo: string
+  payAmount: number
+  payStatus: string
+}
+
+export interface PaymentCallbackPayload {
+  orderNo: string
+  transactionNo: string
+}
+
+export interface OrderDetail {
+  orderNo: string
+  activityId: number
+  userId: number
+  orderStatus: string
+  payStatus: string
+  codeStatus: string
+  priceAmount: number
+  failReason: string | null
+  updatedAt: string
+}
+
+export interface OrderCodeDetail {
+  orderNo: string
+  activityId: number
+  orderStatus: string
+  payStatus: string
+  codeStatus: string
+  code: string | null
+  updatedAt: string
 }
 
 export interface ActivityFormModel {

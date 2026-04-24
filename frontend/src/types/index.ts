@@ -112,6 +112,35 @@ export interface OrderDetail {
   updatedAt: string
 }
 
+export type ExportFormat = 'CSV' | 'XLSX'
+export type ExportTaskStatus = 'INIT' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | (string & {})
+
+export interface ExportTaskFilters {
+  payStatus?: string
+  orderStatus?: string
+  codeStatus?: string
+  userId?: number
+}
+
+export interface ExportTaskCreatePayload {
+  activityId: number
+  format: ExportFormat
+  filters: ExportTaskFilters
+}
+
+export interface ExportTask {
+  id: number
+  activityId: number
+  operatorId?: number
+  format: ExportFormat
+  filters: ExportTaskFilters
+  status: ExportTaskStatus
+  fileUrl?: string | null
+  failReason?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ActivityFormModel {
   title: string
   description: string

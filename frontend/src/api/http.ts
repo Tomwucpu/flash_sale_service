@@ -77,6 +77,27 @@ async function requestEnvelope<T>(config: AxiosRequestConfig) {
   }
 }
 
+async function requestBlob(config: AxiosRequestConfig) {
+  try {
+    const response = await axiosClient.request<Blob>({
+      ...config,
+      responseType: 'blob',
+    })
+
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      if (error.response.status === 401) {
+        handleUnauthorized()
+      }
+
+      throw new ApiClientError('文件下载失败', 'SYSTEM_ERROR', error.response.status, null)
+    }
+
+    throw new ApiClientError('网络请求失败', 'SYSTEM_ERROR', 500, null)
+  }
+}
+
 export const http = {
   get<T>(url: string, config?: AxiosRequestConfig) {
     return request<T>({
@@ -118,6 +139,13 @@ export const http = {
   },
   getEnvelope<T>(url: string, config?: AxiosRequestConfig) {
     return requestEnvelope<T>({
+      ...config,
+      method: 'GET',
+      url,
+    })
+  },
+  downloadBlob(url: string, config?: AxiosRequestConfig) {
+    return requestBlob({
       ...config,
       method: 'GET',
       url,

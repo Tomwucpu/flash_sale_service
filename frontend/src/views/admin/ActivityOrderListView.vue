@@ -2,13 +2,19 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, RefreshCw } from 'lucide-vue-next'
+import { ArrowLeft, Download, LoaderCircle, RefreshCw } from 'lucide-vue-next'
 import { activityApi } from '@/api/activity'
+import { exportApi } from '@/api/export'
 import { orderApi } from '@/api/order'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type { ActivityDetail, OrderDetail } from '@/types'
 import { formatDisplayDateTime } from '@/utils/date'
+import {
+  buildSoldCodeExportPayload,
+  canExportSoldCodes,
+  getExportFileName,
+} from '@/utils/export-task'
 import {
   codeStatusTone,
   formatOrderAmount,
@@ -23,11 +29,13 @@ import {
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
+const exporting = ref(false)
 const detail = ref<ActivityDetail | null>(null)
 const orders = ref<OrderDetail[]>([])
 
 const activityId = computed(() => Number(route.params.id))
 const hasOrders = computed(() => orders.value.length > 0)
+const hasSoldCodeExports = computed(() => canExportSoldCodes(orders.value))
 const summary = computed(() => summarizeActivityOrders(orders.value))
 
 async function loadOrders() {
@@ -44,6 +52,72 @@ async function loadOrders() {
     ElMessage.error(message)
   } finally {
     loading.value = false
+  }
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+async function waitForExportTask(taskId: number) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await wait(1000)
+    const task = await exportApi.getTask(taskId)
+
+    if (task.status === 'SUCCESS') {
+      if (!task.fileUrl) {
+        throw new Error('导出任务已完成，但未返回下载地址')
+      }
+      return task
+    }
+
+    if (task.status === 'FAILED') {
+      throw new Error(task.failReason || '导出任务失败')
+    }
+  }
+
+  throw new Error('导出任务超时，请稍后重试')
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const objectUrl = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = objectUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(objectUrl)
+}
+
+async function handleExportSoldCodes() {
+  if (!hasSoldCodeExports.value) {
+    ElMessage.warning('暂无已售兑换码可导出')
+    return
+  }
+
+  exporting.value = true
+  try {
+    const task = await exportApi.createTask(buildSoldCodeExportPayload(activityId.value))
+    const completedTask = task.status === 'SUCCESS' ? task : await waitForExportTask(task.id)
+
+    if (!completedTask.fileUrl) {
+      throw new Error('导出任务未返回下载地址')
+    }
+
+    const fileName = getExportFileName(completedTask.fileUrl, `activity-${activityId.value}-sold-codes.csv`)
+    const blob = await exportApi.downloadFile(fileName)
+
+    downloadBlob(blob, fileName)
+    ElMessage.success('导出文件已下载')
+  } catch (error) {
+    const message = error instanceof ApiClientError || error instanceof Error ? error.message : '导出失败'
+    ElMessage.error(message)
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -90,6 +164,17 @@ onMounted(loadOrders)
           <button class="flat-button flat-button--ghost" type="button" @click="router.push(`/admin/activities/${activityId}`)">
             <ArrowLeft :size="18" />
             活动详情
+          </button>
+          <button
+            class="flat-button flat-button--secondary"
+            type="button"
+            :disabled="loading || exporting || !hasSoldCodeExports"
+            :title="hasSoldCodeExports ? '导出已售兑换码' : '暂无已售兑换码可导出'"
+            @click="handleExportSoldCodes"
+          >
+            <LoaderCircle v-if="exporting" class="spin-icon" :size="18" />
+            <Download v-else :size="18" />
+            {{ exporting ? '导出中...' : '导出已售兑换码' }}
           </button>
           <button class="flat-button" type="button" :disabled="loading" @click="loadOrders">
             <RefreshCw :size="18" />
@@ -203,6 +288,16 @@ onMounted(loadOrders)
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.spin-icon {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .code-value {

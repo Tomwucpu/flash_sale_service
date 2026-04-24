@@ -25,5 +25,7 @@ logging:
     root: warn
 
 flash-sale:
+  order:
+    timeout-close-scheduler-enabled: false
   export:
     directory: ./target/test-exports

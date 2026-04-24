@@ -9,11 +9,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Clock;
+import java.time.ZoneId;
 
 /**
  * 通用安全组件自动配置。
@@ -28,8 +30,8 @@ public class SecurityAutoConfiguration {
      * 提供统一系统时钟，便于时间相关逻辑测试与替换。
      */
     @Bean
-    Clock clock() {
-        return Clock.systemUTC();
+    Clock clock(@Value("${flash-sale.time-zone:Asia/Shanghai}") String zoneId) {
+        return Clock.system(ZoneId.of(zoneId));
     }
 
     /**

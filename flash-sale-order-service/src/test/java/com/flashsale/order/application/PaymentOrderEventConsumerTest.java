@@ -18,6 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -38,6 +39,9 @@ class PaymentOrderEventConsumerTest {
 
     @Autowired
     private OrderTimeoutCloseConsumer orderTimeoutCloseConsumer;
+
+    @Autowired
+    private OrderProcessingService orderProcessingService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -145,6 +149,50 @@ class PaymentOrderEventConsumerTest {
         )).isEqualTo(10);
         verify(valueOperations).increment(RedisKeys.seckillStock(activityId));
         verify(valueOperations).decrement(RedisKeys.seckillLimit(activityId, 2103L));
+    }
+
+    @Test
+    void closeOverduePaymentOrdersClosesOnlyExpiredWaitPayOrders() {
+        Long activityId = insertActivity("THIRD_PARTY_IMPORTED", true, new BigDecimal("49.90"), 8);
+        insertOrder("SO202604190204", activityId, 2104L, "REQ-PAY-004", "INIT", "WAIT_PAY", "PENDING", new BigDecimal("49.90"));
+        insertOrder("SO202604190205", activityId, 2105L, "REQ-PAY-005", "INIT", "WAIT_PAY", "PENDING", new BigDecimal("49.90"));
+        jdbcTemplate.update("""
+                        update order_record
+                        set created_at = DATEADD('MINUTE', -16, CURRENT_TIMESTAMP),
+                            updated_at = DATEADD('MINUTE', -16, CURRENT_TIMESTAMP)
+                        where order_no = ?
+                        """,
+                "SO202604190204"
+        );
+        when(valueOperations.decrement(RedisKeys.seckillLimit(activityId, 2104L))).thenReturn(0L);
+
+        int closedCount = orderProcessingService.closeOverduePaymentOrders(Duration.ofMinutes(15), 100);
+
+        assertThat(closedCount).isEqualTo(1);
+        Map<String, Object> expiredOrder = jdbcTemplate.queryForMap(
+                "select * from order_record where order_no = ?",
+                "SO202604190204"
+        );
+        assertThat(expiredOrder)
+                .containsEntry("order_status", "CLOSED")
+                .containsEntry("pay_status", "CLOSED")
+                .containsEntry("fail_reason", "PAYMENT_TIMEOUT");
+        Map<String, Object> recentOrder = jdbcTemplate.queryForMap(
+                "select * from order_record where order_no = ?",
+                "SO202604190205"
+        );
+        assertThat(recentOrder)
+                .containsEntry("order_status", "INIT")
+                .containsEntry("pay_status", "WAIT_PAY")
+                .containsEntry("fail_reason", null);
+        assertThat(jdbcTemplate.queryForObject(
+                "select available_stock from activity_product where id = ?",
+                Integer.class,
+                activityId
+        )).isEqualTo(9);
+        verify(valueOperations).increment(RedisKeys.seckillStock(activityId));
+        verify(valueOperations).decrement(RedisKeys.seckillLimit(activityId, 2104L));
+        verify(valueOperations, never()).decrement(RedisKeys.seckillLimit(activityId, 2105L));
     }
 
     private DomainEvent<Map<String, Object>> paymentSuccessEvent(String orderNo, String transactionNo) {

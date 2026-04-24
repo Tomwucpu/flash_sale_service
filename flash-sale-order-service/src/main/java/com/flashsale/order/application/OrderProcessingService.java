@@ -211,9 +211,32 @@ public class OrderProcessingService {
             return;
         }
         ActivityProductEntity activity = loadActivity(order.getActivityId());
-        markOrderClosed(order, FailureReason.PAYMENT_TIMEOUT, order.getUserId());
+        if (!closeWaitPayOrder(order, FailureReason.PAYMENT_TIMEOUT, order.getUserId())) {
+            return;
+        }
         compensate(order.getActivityId(), order.getUserId());
         writeFailure(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), FailureReason.PAYMENT_TIMEOUT, activity);
+    }
+
+    @Transactional
+    public int closeOverduePaymentOrders(Duration paymentTimeout, int batchSize) {
+        if (paymentTimeout == null || paymentTimeout.isNegative() || paymentTimeout.isZero()) {
+            throw new IllegalArgumentException("支付超时时间必须大于 0");
+        }
+        int effectiveBatchSize = Math.max(batchSize, 1);
+        LocalDateTime deadline = LocalDateTime.now(clock).minus(paymentTimeout);
+        List<OrderRecordEntity> overdueOrders = orderRecordMapper.findOverdueWaitPayOrders(deadline, effectiveBatchSize);
+        int closedCount = 0;
+        for (OrderRecordEntity order : overdueOrders) {
+            ActivityProductEntity activity = loadActivity(order.getActivityId());
+            if (!closeWaitPayOrder(order, FailureReason.PAYMENT_TIMEOUT, order.getUserId())) {
+                continue;
+            }
+            compensate(order.getActivityId(), order.getUserId());
+            writeFailure(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), FailureReason.PAYMENT_TIMEOUT, activity);
+            closedCount++;
+        }
+        return closedCount;
     }
 
     public List<OrderDetailView> queryOrdersByActivity(Long activityId, Long currentUserId) {
@@ -374,12 +397,8 @@ public class OrderProcessingService {
         orderRecordMapper.updateById(order);
     }
 
-    private void markOrderClosed(OrderRecordEntity order, FailureReason reason, Long operatorId) {
-        order.setOrderStatus(ORDER_STATUS_CLOSED);
-        order.setPayStatus(PAY_STATUS_CLOSED);
-        order.setFailReason(reason.storedValue());
-        order.setUpdatedBy(operatorId);
-        orderRecordMapper.updateById(order);
+    private boolean closeWaitPayOrder(OrderRecordEntity order, FailureReason reason, Long operatorId) {
+        return orderRecordMapper.closeWaitPayOrder(order.getId(), reason.storedValue(), operatorId) == 1;
     }
 
     private void compensateAndWriteFailure(

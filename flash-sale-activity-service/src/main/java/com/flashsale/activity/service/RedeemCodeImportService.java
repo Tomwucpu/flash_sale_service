@@ -37,6 +37,10 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
+/**
+ * 兑换码导入服务
+ * 负责处理兑换码的批量导入、验证、解析以及导入批次记录的查询
+ */
 @Service
 public class RedeemCodeImportService {
 
@@ -66,6 +70,15 @@ public class RedeemCodeImportService {
         this.redeemCodeImportFailureMapper = redeemCodeImportFailureMapper;
     }
 
+    /**
+     * 导入兑换码
+     * 解析上传的文件（CSV或XLSX），校验兑换码格式及去重，并将成功和失败的记录保存到数据库中，最后生成导入批次记录。
+     *
+     * @param activityId  活动ID
+     * @param file        包含兑换码的上传文件
+     * @param userContext 当前操作用户上下文
+     * @return 导入批次的详细结果响应
+     */
     @Transactional
     public RedeemCodeImportBatchDetailResponse importCodes(Long activityId, MultipartFile file, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
@@ -78,12 +91,15 @@ public class RedeemCodeImportService {
         }
 
         Set<String> existingCodes = findExistingCodes(parsedRows);
+        // seenCodes 用于记录当前文件中已经处理过的兑换码，避免同一文件内的重复
         Set<String> seenCodes = new HashSet<>();
         List<RedeemCodeEntity> successCodes = new ArrayList<>();
+        // 记录导入失败的行，包含行号、原始内容和失败原因
         List<RedeemCodeImportFailureEntity> failures = new ArrayList<>();
         String batchNo = generateBatchNo(activityId);
         Long operatorId = operatorId(userContext);
 
+        // 逐行校验解析结果，记录成功和失败的兑换码
         for (ParsedCodeRow parsedRow : parsedRows) {
             String normalizedCode = normalize(parsedRow.rawCode());
             if (normalizedCode.isBlank()) {
@@ -94,6 +110,7 @@ public class RedeemCodeImportService {
                 failures.add(failure(activityId, batchNo, parsedRow.lineNumber(), normalizedCode, "INVALID_FORMAT", operatorId));
                 continue;
             }
+            // 检查是否在当前文件中重复
             if (!seenCodes.add(normalizedCode)) {
                 failures.add(failure(activityId, batchNo, parsedRow.lineNumber(), normalizedCode, "DUPLICATE_IN_FILE", operatorId));
                 continue;
@@ -112,6 +129,7 @@ public class RedeemCodeImportService {
             redeemCodeImportFailureMapper.insert(failure);
         }
 
+        // 创建导入批次记录，包含统计信息和文件元数据
         RedeemCodeImportBatchEntity batch = new RedeemCodeImportBatchEntity();
         batch.setActivityId(activityId);
         batch.setBatchNo(batchNo);
@@ -124,12 +142,19 @@ public class RedeemCodeImportService {
         batch.setIsDeleted(0);
         redeemCodeImportBatchMapper.insert(batch);
 
+        // 
         return RedeemCodeImportBatchDetailResponse.fromEntity(
                 batch,
                 failures.stream().map(RedeemCodeImportFailureResponse::fromEntity).toList()
         );
     }
 
+    /**
+     * 获取活动的导入批次列表
+     *
+     * @param activityId 活动ID
+     * @return 导入批次摘要信息的列表
+     */
     public List<RedeemCodeImportBatchSummaryResponse> listBatches(Long activityId) {
         getRequiredActivity(activityId);
         return redeemCodeImportBatchMapper.selectList(
@@ -142,6 +167,13 @@ public class RedeemCodeImportService {
                 .toList();
     }
 
+    /**
+     * 获取指定导入批次的详细信息（包含失败记录）
+     *
+     * @param activityId 活动ID
+     * @param batchNo    导入批次号
+     * @return 批次详细信息和失败记录明细
+     */
     public RedeemCodeImportBatchDetailResponse getBatchDetail(Long activityId, String batchNo) {
         getRequiredActivity(activityId);
         RedeemCodeImportBatchEntity batch = redeemCodeImportBatchMapper.selectOne(
@@ -170,6 +202,7 @@ public class RedeemCodeImportService {
         Set<String> candidateCodes = new HashSet<>();
         for (ParsedCodeRow parsedRow : parsedRows) {
             String normalizedCode = normalize(parsedRow.rawCode());
+            // 仅对非空且格式正确的兑换码进行数据库查询
             if (!normalizedCode.isBlank() && CODE_PATTERN.matcher(normalizedCode).matches()) {
                 candidateCodes.add(normalizedCode);
             }
@@ -177,6 +210,7 @@ public class RedeemCodeImportService {
         if (candidateCodes.isEmpty()) {
             return Set.of();
         }
+        // 从数据库中查询已存在的兑换码
         return redeemCodeMapper.selectList(
                         new LambdaQueryWrapper<RedeemCodeEntity>()
                                 .in(RedeemCodeEntity::getCode, candidateCodes)
@@ -207,6 +241,10 @@ public class RedeemCodeImportService {
 
     private List<ParsedCodeRow> parseCsv(MultipartFile file) throws IOException {
         List<ParsedCodeRow> rows = new ArrayList<>();
+
+        // file.getInputStream()：获取上传文件的输入流
+        // InputStreamReader(..., StandardCharsets.UTF_8)：将字节流按 UTF-8 解码为字符流。避免了平台默认编码导致的乱码
+        // BufferedReader：带缓冲的读取器，提高了按行读取的效率。
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             int lineNumber = 0;
@@ -224,31 +262,48 @@ public class RedeemCodeImportService {
 
     private List<ParsedCodeRow> parseXlsx(MultipartFile file) throws IOException {
         List<ParsedCodeRow> rows = new ArrayList<>();
+
+        // 使用 Apache POI 解析 XLSX 文件，支持更复杂的表格结构和格式，第一行同样支持表头识别
         DataFormatter dataFormatter = new DataFormatter();
+
+        // XSSFWorkbook 直接从输入流创建，无需将整个文件加载到内存中
         try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
+
+            // getNumberOfSheets()获取工作表数量，如果没有工作表则直接返回空列表
             if (workbook.getNumberOfSheets() == 0) {
                 return rows;
             }
+
+            // getSheetAt(0)获取第一个工作表
             Sheet sheet = workbook.getSheetAt(0);
+            // getFirstRowNum()返回工作表中物理存在的第一行索引，通常为0
             int firstRowIndex = sheet.getFirstRowNum();
+            // getLastRowNum()返回最后一行索引
             int lastRowIndex = sheet.getLastRowNum();
+
             for (int rowIndex = firstRowIndex; rowIndex <= lastRowIndex; rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
+
+                // dataFormatter.formatCellValue(...)将单元格内容格式化为字符串
                 String rawCode = row == null ? "" : dataFormatter.formatCellValue(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
+                // 第一行如果是表头则跳过
                 if (rowIndex == firstRowIndex && isHeader(rawCode)) {
                     continue;
                 }
+                // 
                 rows.add(new ParsedCodeRow(rowIndex + 1, rawCode));
             }
         }
         return rows;
     }
 
+    // 从CSV行中提取第一列作为兑换码，支持逗号分隔，允许空列但不允许行完全为空
     private String firstColumn(String line) {
         String[] columns = line.split(",", -1);
         return columns.length == 0 ? "" : columns[0];
     }
 
+    // 删除字符串开头的 BOM 字符（如果存在），避免解析时出现乱码
     private String stripBom(String value) {
         if (!value.isEmpty() && value.charAt(0) == '\uFEFF') {
             return value.substring(1);
@@ -256,10 +311,12 @@ public class RedeemCodeImportService {
         return value;
     }
 
+    // 判断第一行是否为表头（不区分大小写，允许前后有空白）
     private boolean isHeader(String rawCode) {
         return HEADER_NAMES.contains(normalize(rawCode).toLowerCase(Locale.ROOT));
     }
 
+    // 字符串规范化，去除首尾空白，如果输入为null则返回空字符串
     private String normalize(String rawCode) {
         return rawCode == null ? "" : rawCode.trim();
     }
@@ -325,11 +382,13 @@ public class RedeemCodeImportService {
         return entity;
     }
 
+    // 生成唯一的导入批次号，格式为 "IMP-{activityId}-{timestamp}-{random}"
     private String generateBatchNo(Long activityId) {
         return "IMP-" + activityId + "-" + LocalDateTime.now().format(BATCH_TIME_FORMATTER)
                 + "-" + ThreadLocalRandom.current().nextInt(1000, 10000);
     }
 
+    // 从用户上下文中提取操作人ID
     private Long operatorId(UserContext userContext) {
         return userContext == null ? null : userContext.userId();
     }

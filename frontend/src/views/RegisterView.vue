@@ -129,7 +129,7 @@ async function handleRegister() {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.92fr);
-  background: linear-gradient(90deg, #d1fae5 0 56%, #f3f4f6 56% 100%);
+  background: linear-gradient(135deg, #d1fae5 0%, #dbeafe 33%, #fef3c7 66%, #ffedd5 100%);
 }
 
 .register-page__poster {
@@ -181,7 +181,7 @@ async function handleRegister() {
 @media (max-width: 960px) {
   .register-page {
     grid-template-columns: 1fr;
-    background: linear-gradient(180deg, #d1fae5 0 42%, #f3f4f6 42% 100%);
+    background: linear-gradient(180deg, #d1fae5 0%, #dbeafe 33%, #fef3c7 66%, #ffedd5 100%);
   }
 
   .register-page__poster {

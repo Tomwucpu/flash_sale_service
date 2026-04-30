@@ -7,32 +7,32 @@ import { ArrowRight, BadgeCheck, LayoutPanelTop, Sparkles } from 'lucide-vue-nex
   <div class="page-shell">
     <section class="public-hero">
       <div class="public-hero__copy">
-        <div class="eyebrow">Poster Homepage</div>
-        <h1 class="poster-title">活动入口</h1>
-        <p class="poster-copy">查看公开活动，或进入后台管理。</p>
+        <div class="eyebrow">Flash Sale Platform</div>
+        <h1 class="poster-title">高并发秒杀平台</h1>
+        <p class="poster-copy">体验极速秒杀，抢购热门商品。查看最新秒杀活动，或者进入管理后台进行配置配置与监控。</p>
         <div class="public-hero__actions">
           <RouterLink class="flat-button" to="/public/activities">
-            查看活动列表
+            探索秒杀活动
             <ArrowRight :size="18" />
           </RouterLink>
-          <RouterLink class="flat-button flat-button--ghost" to="/login">进入后台联调</RouterLink>
+          <RouterLink class="flat-button flat-button--ghost" to="/login">进入管理后台</RouterLink>
         </div>
       </div>
       <div class="public-hero__grid">
         <article class="flat-panel flat-panel--blue">
           <LayoutPanelTop :size="28" />
-          <strong>后台管理</strong>
-          <span>创建、发布、下线。</span>
+          <strong>活动管理</strong>
+          <span>创建、发布、下架秒杀活动。</span>
         </article>
         <article class="flat-panel flat-panel--green">
           <BadgeCheck :size="28" />
-          <strong>公开活动</strong>
-          <span>列表与详情。</span>
+          <strong>公平抢购</strong>
+          <span>高性能架构保障抢购公平。</span>
         </article>
-        <article class="flat-panel flat-panel--amber public-hero__accent">
-          <Sparkles :size="30" />
-          <strong>Flat Poster</strong>
-          <span>简洁直观。</span>
+        <article class="flat-panel flat-panel--amber">
+          <Sparkles :size="28" />
+          <strong>极速体验</strong>
+          <span>轻松应对高并发流量。</span>
         </article>
       </div>
     </section>
@@ -68,6 +68,7 @@ import { ArrowRight, BadgeCheck, LayoutPanelTop, Sparkles } from 'lucide-vue-nex
   display: grid;
   gap: 1rem;
   background:
+    radial-gradient(circle at 100% 0%, #ffedd5 0%, transparent 50%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0 28%, transparent 28% 100%),
     #f3f4f6;
 }
@@ -75,10 +76,6 @@ import { ArrowRight, BadgeCheck, LayoutPanelTop, Sparkles } from 'lucide-vue-nex
 .public-hero__grid article {
   display: grid;
   gap: 0.8rem;
-}
-
-.public-hero__accent {
-  min-height: 220px;
 }
 
 @media (max-width: 960px) {

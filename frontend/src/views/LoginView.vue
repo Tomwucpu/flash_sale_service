@@ -90,7 +90,7 @@ async function handleLogin() {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
-  background: linear-gradient(90deg, #dbeafe 0 58%, #f3f4f6 58% 100%);
+  background: linear-gradient(135deg, #dbeafe 0%, #d1fae5 33%, #fef3c7 66%, #ffedd5 100%);
 }
 
 .login-page__poster {
@@ -151,7 +151,7 @@ async function handleLogin() {
 @media (max-width: 960px) {
   .login-page {
     grid-template-columns: 1fr;
-    background: linear-gradient(180deg, #dbeafe 0 45%, #f3f4f6 45% 100%);
+    background: linear-gradient(180deg, #dbeafe 0%, #d1fae5 33%, #fef3c7 66%, #ffedd5 100%);
   }
 
   .login-page__poster {

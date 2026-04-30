@@ -159,7 +159,7 @@ button {
 
 .flat-button:hover {
   transform: scale(1.02);
-  background: #1d4ed8;
+  background: #2563eb;
 }
 
 .flat-button--secondary {

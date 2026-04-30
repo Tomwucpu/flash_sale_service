@@ -70,8 +70,8 @@ onMounted(async () => {
         </div>
         <div class="meta-list">
           <div class="meta-row"><span>库存</span><strong>{{ activity.availableStock }} / {{ activity.totalStock }}</strong></div>
-          <div class="meta-row"><span>发布时间</span><strong>{{ formatDisplayDateTime(activity.publishTime) }}</strong></div>
-          <div class="meta-row"><span>活动时间</span><strong>{{ formatDisplayDateTime(activity.startTime) }}</strong></div>
+          <div class="meta-row"><span>开始时间</span><strong>{{ formatDisplayDateTime(activity.startTime) }}</strong></div>
+          <div class="meta-row"><span>结束时间</span><strong>{{ formatDisplayDateTime(activity.endTime) }}</strong></div>
         </div>
       </RouterLink>
     </section>

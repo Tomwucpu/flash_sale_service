@@ -55,8 +55,11 @@ function handleLogout() {
 .public-shell {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, #ffffff 0 20%, transparent 20% 100%),
-    linear-gradient(90deg, #dbeafe 0 34%, #ecfdf5 34% 68%, #f3f4f6 68% 100%);
+    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(16, 185, 129, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(245, 158, 11, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(249, 115, 22, 0.1) 0%, transparent 40%),
+    linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%);
 }
 
 .public-shell__header {

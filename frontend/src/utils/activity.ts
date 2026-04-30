@@ -50,6 +50,7 @@ const importFailureReasonLabelMap: Record<string, string> = {
   INVALID_FORMAT: '兑换码格式非法',
   DUPLICATE_IN_FILE: '文件内重复',
   DUPLICATE_IN_SYSTEM: '系统内已存在',
+  EXCEED_STOCK_LIMIT: '超出活动库存限制',
 }
 
 export function getPublishStatusLabel(status: PublishStatus) {

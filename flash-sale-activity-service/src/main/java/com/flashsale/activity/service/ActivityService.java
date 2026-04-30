@@ -305,7 +305,15 @@ public class ActivityService {
     }
 
     private ActivityDetailResponse toDetailResponse(ActivityEntity activity) {
-        return ActivityDetailResponse.fromEntity(activity, phaseOf(activity));
+        Long currentTotalImportedCount = null;
+        if ("THIRD_PARTY_IMPORTED".equals(activity.getCodeSourceMode())) {
+            currentTotalImportedCount = redeemCodeMapper.selectCount(
+                    new LambdaQueryWrapper<com.flashsale.activity.domain.RedeemCodeEntity>()
+                            .eq(com.flashsale.activity.domain.RedeemCodeEntity::getActivityId, activity.getId())
+                            .eq(com.flashsale.activity.domain.RedeemCodeEntity::getIsDeleted, 0)
+            );
+        }
+        return ActivityDetailResponse.fromEntity(activity, phaseOf(activity), currentTotalImportedCount);
     }
 
     private ActivityPhase phaseOf(ActivityEntity activity) {

@@ -99,6 +99,14 @@ public class RedeemCodeImportService {
         String batchNo = generateBatchNo(activityId);
         Long operatorId = operatorId(userContext);
 
+        // 获取当前已导入的有效兑换码数量
+        Long currentCount = redeemCodeMapper.selectCount(
+                new LambdaQueryWrapper<RedeemCodeEntity>()
+                        .eq(RedeemCodeEntity::getActivityId, activityId)
+                        .eq(RedeemCodeEntity::getIsDeleted, 0)
+        );
+        long availableCapacity = activity.getTotalStock() - currentCount;
+
         // 逐行校验解析结果，记录成功和失败的兑换码
         for (ParsedCodeRow parsedRow : parsedRows) {
             String normalizedCode = normalize(parsedRow.rawCode());
@@ -117,6 +125,10 @@ public class RedeemCodeImportService {
             }
             if (existingCodes.contains(normalizedCode)) {
                 failures.add(failure(activityId, batchNo, parsedRow.lineNumber(), normalizedCode, "DUPLICATE_IN_SYSTEM", operatorId));
+                continue;
+            }
+            if (successCodes.size() >= availableCapacity) {
+                failures.add(failure(activityId, batchNo, parsedRow.lineNumber(), normalizedCode, "EXCEED_STOCK_LIMIT", operatorId));
                 continue;
             }
             successCodes.add(successCode(activityId, batchNo, normalizedCode, operatorId));
@@ -142,7 +154,6 @@ public class RedeemCodeImportService {
         batch.setIsDeleted(0);
         redeemCodeImportBatchMapper.insert(batch);
 
-        // 
         return RedeemCodeImportBatchDetailResponse.fromEntity(
                 batch,
                 failures.stream().map(RedeemCodeImportFailureResponse::fromEntity).toList()

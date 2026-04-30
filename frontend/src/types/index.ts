@@ -49,6 +49,7 @@ export type RedeemCodeImportFailureReason =
   | 'INVALID_FORMAT'
   | 'DUPLICATE_IN_FILE'
   | 'DUPLICATE_IN_SYSTEM'
+  | 'EXCEED_STOCK_LIMIT'
   | (string & {})
 
 export interface ActivitySummary {
@@ -72,6 +73,7 @@ export interface ActivityDetail extends ActivitySummary {
   purchaseLimitType: PurchaseLimitType
   purchaseLimitCount: number
   codeSourceMode: CodeSourceMode
+  currentTotalImportedCount?: number
 }
 
 export interface SeckillAttemptResponse {

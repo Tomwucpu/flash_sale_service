@@ -21,12 +21,13 @@ public record ActivityDetailResponse(
         String publishMode,
         String publishStatus,
         String phase,
+        Long currentTotalImportedCount,
         LocalDateTime publishTime,
         LocalDateTime startTime,
         LocalDateTime endTime
 ) {
 
-    public static ActivityDetailResponse fromEntity(ActivityEntity entity, ActivityPhase phase) {
+    public static ActivityDetailResponse fromEntity(ActivityEntity entity, ActivityPhase phase, Long currentTotalImportedCount) {
         return new ActivityDetailResponse(
                 entity.getId(),
                 entity.getTitle(),
@@ -42,6 +43,7 @@ public record ActivityDetailResponse(
                 entity.getPublishMode(),
                 entity.getPublishStatus(),
                 phase.name(),
+                currentTotalImportedCount,
                 entity.getPublishTime(),
                 entity.getStartTime(),
                 entity.getEndTime()

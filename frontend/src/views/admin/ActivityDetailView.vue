@@ -214,31 +214,21 @@ onMounted(loadDetail)
         <div class="batch-card-header">
           <div>
             <div class="eyebrow">Latest Batch</div>
-            <strong>{{ latestImportResult.fileName }}</strong>
+            <strong>{{ latestImportResult.fileName }}</strong> <span class="text-muted ml-2">{{ latestImportResult.batchNo }}</span>
           </div>
-          <span>{{ latestImportResult.batchNo }}</span>
-        </div>
-        <div class="flat-grid flat-grid--3">
-          <div class="mini-stat">
-            <span>总行数</span>
-            <strong>{{ latestImportResult.totalCount }}</strong>
-          </div>
-          <div class="mini-stat">
-            <span>成功导入</span>
-            <strong>{{ latestImportResult.successCount }}</strong>
-          </div>
-          <div class="mini-stat">
-            <span>失败行</span>
-            <strong>{{ latestImportResult.failedCount }}</strong>
+          <div class="batch-stats-inline">
+            <span>总数: <strong>{{ latestImportResult.totalCount }}</strong></span>
+            <span>成功: <strong style="color: var(--color-green, #16a34a)">{{ latestImportResult.successCount }}</strong></span>
+            <span>失败: <strong style="color: var(--color-red, #dc2626)">{{ latestImportResult.failedCount }}</strong></span>
           </div>
         </div>
         <div class="failure-list" v-if="latestImportResult.failures.length > 0">
           <div class="failure-item" v-for="failure in latestImportResult.failures" :key="`${latestImportResult.batchNo}-${failure.lineNumber}`">
             <div class="failure-item__meta">
-              <span>第 {{ failure.lineNumber }} 行</span>
+              <span class="text-muted">第 {{ failure.lineNumber }} 行：</span>
               <strong>{{ failure.rawCode || '空值' }}</strong>
             </div>
-            <span>{{ getImportFailureReasonLabel(failure.reason) }}</span>
+            <span class="failure-reason">{{ getImportFailureReasonLabel(failure.reason) }}</span>
           </div>
         </div>
       </article>
@@ -246,34 +236,23 @@ onMounted(loadDetail)
       <div class="batch-list" v-loading="importBatchesLoading">
         <div class="batch-list-header">
           <div class="eyebrow">Batch History</div>
-          <span>最新优先</span>
         </div>
 
         <div v-if="importBatches.length > 0" class="batch-list-body">
           <article class="batch-card" v-for="batch in importBatches" :key="batch.batchNo">
             <div class="batch-card-header">
-              <div>
+              <div class="batch-title">
                 <strong>{{ batch.fileName }}</strong>
-                <span>{{ batch.batchNo }}</span>
+                <span class="text-muted">{{ batch.batchNo }}</span>
               </div>
-              <button class="flat-button flat-button--ghost batch-card__action" type="button" @click="handleViewBatchDetail(batch.batchNo)">
-                <History :size="16" />
+              <div class="batch-stats-inline">
+                <span>总数: <strong>{{ batch.totalCount }}</strong></span>
+                <span>成功: <strong style="color: var(--color-green, #16a34a)">{{ batch.successCount }}</strong></span>
+                <span>失败: <strong style="color: var(--color-red, #dc2626)">{{ batch.failedCount }}</strong></span>
+              </div>
+              <button class="text-button" type="button" @click="handleViewBatchDetail(batch.batchNo)">
                 查看明细
               </button>
-            </div>
-            <div class="flat-grid flat-grid--3">
-              <div class="mini-stat">
-                <span>总行数</span>
-                <strong>{{ batch.totalCount }}</strong>
-              </div>
-              <div class="mini-stat">
-                <span>成功导入</span>
-                <strong>{{ batch.successCount }}</strong>
-              </div>
-              <div class="mini-stat">
-                <span>失败行</span>
-                <strong>{{ batch.failedCount }}</strong>
-              </div>
             </div>
           </article>
         </div>
@@ -388,6 +367,7 @@ onMounted(loadDetail)
 .import-toolbar {
   align-items: center;
   flex-wrap: wrap;
+  margin-top: 1.5rem;
 }
 
 .import-file-picker {
@@ -413,11 +393,19 @@ onMounted(loadDetail)
   border: 0;
 }
 
+.import-tip {
+  margin-top: 1rem;
+}
+
 .import-tip,
 .batch-list-header span,
 .batch-card-header span,
 .dialog-placeholder {
   color: var(--fg-soft);
+}
+
+.latest-import-panel {
+  margin-top: 1.5rem;
 }
 
 .latest-import-panel,
@@ -430,59 +418,90 @@ onMounted(loadDetail)
 
 .batch-list {
   display: grid;
-  gap: 1rem;
-  margin-top: 1.25rem;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
 }
 
 .batch-card {
-  padding: 1rem;
-  border: 2px solid var(--fg);
+  padding: 1.25rem 1.5rem;
+  border: 2px solid rgba(17, 24, 39, 0.12);
   background: white;
+  transition: border-color 0.2s ease;
+}
+.batch-card:hover {
+  border-color: var(--fg);
 }
 
 .batch-card-header {
-  align-items: start;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
 }
 
-.batch-card-header strong,
-.failure-item__meta strong {
-  display: block;
+.batch-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 250px;
 }
 
-.batch-card__action {
-  min-height: 42px;
-  padding: 0.55rem 0.8rem;
-}
-
-.mini-stat {
-  padding: 0.85rem 1rem;
-  border: 2px solid var(--fg);
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.mini-stat span {
-  display: block;
+.text-muted {
   color: var(--fg-soft);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
 }
 
-.mini-stat strong {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 1.35rem;
+.ml-2 {
+  margin-left: 0.75rem;
+}
+
+.batch-stats-inline {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  font-size: 1.05rem;
+}
+
+.text-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 1rem;
+}
+
+.text-button:hover {
+  color: #1d4ed8;
 }
 
 .failure-item {
+  display: flex;
   align-items: center;
-  padding: 0.85rem 1rem;
-  border: 2px solid rgba(17, 24, 39, 0.12);
-  background: white;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-left: 4px solid #ef4444;
+  background: rgba(254, 242, 242, 0.5);
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.failure-item:last-child {
+  margin-bottom: 0;
 }
 
 .failure-item__meta {
+  display: flex;
   align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.failure-reason {
+  color: #dc2626;
+  font-weight: 500;
 }
 
 .compact-empty-state {

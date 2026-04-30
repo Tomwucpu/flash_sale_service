@@ -339,7 +339,7 @@ onBeforeUnmount(() => {
             :tone="detail.phase === 'ONGOING' ? 'blue' : detail.phase === 'PREVIEW' ? 'amber' : 'slate'"
           />
         </div>
-        <div class="detail-hero__seckill">
+        <div class="detail-hero__seckill" v-if="detail.phase !== 'ENDED'">
           <button class="flat-button detail-hero__seckill-button" type="button" :disabled="!canAttemptSeckill" @click="handleAttemptSeckill">
             {{ seckillAttempting ? '提交中...' : '立即抢购' }}
           </button>
@@ -531,7 +531,8 @@ onBeforeUnmount(() => {
 .detail-hero__image img {
   width: 100%;
   height: 100%;
-  min-height: 420px;
+  min-height: 280px;
+  max-height: 360px;
   object-fit: cover;
   display: block;
 }
@@ -539,8 +540,8 @@ onBeforeUnmount(() => {
 .detail-hero__content {
   display: grid;
   align-content: center;
-  gap: 1rem;
-  padding: 2rem;
+  gap: 0.75rem;
+  padding: 1.5rem;
   background: #dbeafe;
 }
 
@@ -558,8 +559,11 @@ onBeforeUnmount(() => {
 }
 
 .detail-hero__seckill-button {
-  justify-self: start;
-  min-width: 160px;
+  justify-self: stretch;
+  min-height: 3.5rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .detail-hero__payment {

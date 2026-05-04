@@ -106,7 +106,7 @@ onMounted(loadActivities)
 
       <div v-loading="loading" class="table-container">
         <el-table v-if="hasActivities" :data="activities" row-key="id" style="width: 100%;">
-          <el-table-column prop="title" label="活动信息" min-width="220">
+          <el-table-column prop="id" label="活动信息" min-width="220" sortable>
             <template #default="{ row }">
               <div class="cell-stack">
                 <strong>{{ row.title }}</strong>
@@ -114,7 +114,7 @@ onMounted(loadActivities)
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="库存" width="140">
+          <el-table-column prop="availableStock" label="库存" width="140" sortable>
             <template #default="{ row }">
               <div class="cell-stack">
                 <strong>{{ row.availableStock }} / {{ row.totalStock }}</strong>
@@ -122,7 +122,7 @@ onMounted(loadActivities)
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="发布配置" min-width="220">
+          <el-table-column prop="publishTime" label="发布配置" min-width="220" sortable>
             <template #default="{ row }">
               <div class="cell-stack">
                 <strong>{{ getPublishModeLabel(row.publishMode) }}</strong>
@@ -144,7 +144,7 @@ onMounted(loadActivities)
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="时间窗" min-width="210">
+          <el-table-column prop="startTime" label="时间窗" min-width="210" sortable>
             <template #default="{ row }">
               <div class="cell-stack">
                 <strong>{{ formatDisplayDateTime(row.startTime) }}</strong>

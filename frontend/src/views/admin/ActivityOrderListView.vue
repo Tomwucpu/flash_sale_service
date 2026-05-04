@@ -186,7 +186,7 @@ onMounted(loadOrders)
       <div v-loading="loading" class="orders-table-loading">
         <div v-if="hasOrders" class="orders-table-wrap">
           <el-table class="orders-table" :data="orders" row-key="orderNo">
-            <el-table-column prop="orderNo" label="订单" min-width="210">
+            <el-table-column prop="orderNo" label="订单" min-width="210" sortable>
               <template #default="{ row }">
                 <div class="cell-stack">
                   <strong>{{ row.orderNo }}</strong>
@@ -194,7 +194,7 @@ onMounted(loadOrders)
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="金额" width="120">
+            <el-table-column prop="priceAmount" label="金额" width="120" sortable>
               <template #default="{ row }">
                 <strong>{{ formatOrderAmount(row.priceAmount) }}</strong>
               </template>
@@ -216,7 +216,7 @@ onMounted(loadOrders)
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="更新时间" min-width="170">
+            <el-table-column prop="updatedAt" label="更新时间" min-width="170" sortable>
               <template #default="{ row }">
                 {{ formatDisplayDateTime(row.updatedAt) }}
               </template>

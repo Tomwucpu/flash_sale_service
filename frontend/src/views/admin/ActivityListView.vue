@@ -104,8 +104,8 @@ onMounted(loadActivities)
         </button>
       </div>
 
-      <div v-loading="loading">
-        <el-table v-if="hasActivities" :data="activities" row-key="id">
+      <div v-loading="loading" class="table-container">
+        <el-table v-if="hasActivities" :data="activities" row-key="id" style="width: 100%;">
           <el-table-column prop="title" label="活动信息" min-width="220">
             <template #default="{ row }">
               <div class="cell-stack">
@@ -248,12 +248,21 @@ onMounted(loadActivities)
 }
 
 .action-cell {
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .action-button {
   min-height: 42px;
   padding: 0.55rem 0.8rem;
+}
+
+.table-container {
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .empty-state {

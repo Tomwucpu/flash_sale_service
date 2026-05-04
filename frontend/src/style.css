@@ -60,6 +60,7 @@ button {
 .page-shell {
   display: grid;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 .page-header {
@@ -68,6 +69,7 @@ button {
   padding: 1.5rem;
   border: 2px solid var(--fg);
   background: white;
+  min-width: 0;
 }
 
 .page-header--blue {
@@ -122,6 +124,7 @@ button {
   padding: 1.25rem;
   border: 2px solid var(--fg);
   background: white;
+  min-width: 0;
 }
 
 .flat-panel--soft {

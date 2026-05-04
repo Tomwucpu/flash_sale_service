@@ -164,9 +164,8 @@ onMounted(loadDetail)
         <div class="meta-list">
           <div class="meta-row"><span>活动 ID</span><strong>#{{ detail.id }}</strong></div>
           <div class="meta-row"><span>封面图</span><strong>{{ detail.coverUrl || '未设置' }}</strong></div>
-          <div class="meta-row"><span>总库存容量</span><strong>{{ detail.totalStock }}</strong></div>
-          <div class="meta-row" v-if="detail.codeSourceMode === 'THIRD_PARTY_IMPORTED'"><span>当前总有效兑换码</span><strong>{{ detail.currentTotalImportedCount ?? 0 }}</strong></div>
-          <div class="meta-row"><span>当前可用库存</span><strong>{{ detail.availableStock }}</strong></div>
+          <div class="meta-row"><span>可用 / 总库存</span><strong><span style="color: #2563eb">{{ detail.availableStock }}</span> / {{ detail.totalStock }}</strong></div>
+          <div class="meta-row" v-if="detail.codeSourceMode === 'THIRD_PARTY_IMPORTED'"><span>当前总有效兑换码</span><strong style="color: #16a34a">{{ detail.currentTotalImportedCount ?? 0 }}</strong></div>
           <div class="meta-row"><span>活动金额</span><strong>{{ detail.priceAmount }}</strong></div>
           <div class="meta-row"><span>支付模式</span><strong>{{ detail.needPayment ? '需要支付' : '免支付' }}</strong></div>
         </div>

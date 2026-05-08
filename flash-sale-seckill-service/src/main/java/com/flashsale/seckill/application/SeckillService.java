@@ -19,6 +19,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 秒杀核心业务服务
+ * 负责处理秒杀请求接收、Redis Lua并发验证和扣库存，以及通过MQ分发异步创建订单操作
+ */
 @Service
 public class SeckillService {
 
@@ -44,12 +48,19 @@ public class SeckillService {
         this.eventExchange = eventExchange;
     }
 
+    /**
+     * 发起秒杀请求
+     * 1. 验证活动状态
+     * 2. 调用 Redis Lua 脚本原子性判断并扣减库存、限购限制
+     * 3. 验证通过后发送 MQ 消息异步创建订单，并预写受理状态
+     */
     public SeckillAttemptResult attempt(Long activityId, String requestId, UserContext userContext) {
         ActivitySnapshot activity = loadActivitySnapshot(activityId);
         if (!activity.published()) {
             return SeckillAttemptResult.failure("ACTIVITY_OFFLINE", "活动已下线或未发布");
         }
 
+        // 执行 Redis Lua 脚本进行库存和限购验证
         Long luaResult = stringRedisTemplate.execute(
                 seckillAttemptRedisScript,
                 List.of(
@@ -64,6 +75,7 @@ public class SeckillService {
                 String.valueOf(REQUEST_MARKER_TTL.toSeconds())
         );
 
+        // 根据 Lua 脚本返回结果判断秒杀请求是否成功
         LuaResultCode resultCode = LuaResultCode.from(luaResult);
         if (resultCode != LuaResultCode.SUCCESS) {
             return SeckillAttemptResult.failure(resultCode.apiCode, resultCode.message);
@@ -72,6 +84,7 @@ public class SeckillService {
         rabbitTemplate.convertAndSend(
                 eventExchange,
                 "order.create",
+                // 事件ID设计为 activityId:userId:requestId 组合，确保幂等消费和日志追踪
                 DomainEvent.create(
                         "order.create",
                         "activity:%d:user:%d:req:%s".formatted(activityId, userContext.userId(), requestId),
@@ -80,10 +93,14 @@ public class SeckillService {
                 )
         );
 
+        // 预写秒杀请求受理状态到redis中
         writeProcessingResult(activityId, userContext.userId(), activity);
         return SeckillAttemptResult.processing(activityId);
     }
 
+    /**
+     * 查询个人的秒杀结果
+     */
     public SeckillResultResponse queryResult(Long activityId, UserContext userContext) {
         Map<Object, Object> entries = stringRedisTemplate.opsForHash().entries(RedisKeys.seckillResult(activityId, userContext.userId()));
         if (entries == null || entries.isEmpty()) {
@@ -99,6 +116,7 @@ public class SeckillService {
     }
 
     private ActivitySnapshot loadActivitySnapshot(Long activityId) {
+        // 从 Redis 缓存加载活动快照，包含活动状态、时间、限购等信息
         Map<Object, Object> detail = stringRedisTemplate.opsForHash().entries(RedisKeys.activityDetail(activityId));
         if (detail == null || detail.isEmpty()) {
             return ActivitySnapshot.offline();
@@ -188,11 +206,13 @@ public class SeckillService {
             String codeSourceMode
     ) {
 
+        // 活动未发布或已下线的默认快照
         private static ActivitySnapshot offline() {
             LocalDateTime now = LocalDateTime.now();
             return new ActivitySnapshot(false, now, now, 1, false, "SYSTEM_GENERATED");
         }
 
+        // 从 Redis 缓存数据构建活动快照
         private static ActivitySnapshot from(Map<Object, Object> detail) {
             String publishStatus = valueOf(detail, "publishStatus");
             LocalDateTime startTime = parseDateTime(valueOf(detail, "startTime"));

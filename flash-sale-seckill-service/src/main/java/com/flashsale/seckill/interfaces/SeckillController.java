@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 秒杀相关接口控制器
+ */
 @RestController
 @RequestMapping("/api/seckill")
 public class SeckillController {
@@ -26,6 +29,9 @@ public class SeckillController {
         this.seckillService = seckillService;
     }
 
+    /**
+     * 发起秒杀请求
+     */
     @PostMapping("/activities/{activityId}/attempt")
     public ApiResponse<?> attempt(@PathVariable Long activityId, HttpServletRequest request) {
         String requestId = requiredRequestId(request);
@@ -33,6 +39,9 @@ public class SeckillController {
         return new ApiResponse<>(result.code(), result.message(), requestId, result.data());
     }
 
+    /**
+     * 查询秒杀结果
+     */
     @GetMapping("/results/{activityId}")
     public ApiResponse<SeckillResultResponse> result(@PathVariable Long activityId, HttpServletRequest request) {
         return ApiResponse.success(

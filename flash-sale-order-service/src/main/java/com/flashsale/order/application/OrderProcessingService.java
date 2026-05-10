@@ -74,52 +74,73 @@ public class OrderProcessingService {
     public void handleFreeOrder(OrderCreatePayload payload) {
         ActivityProductEntity activity = loadActivity(payload.activityId());
         if (activity == null) {
+            // 若活动在数据库中被硬删，执行 Redis 补偿（加回库存等）并回写失败状态
             compensateAndWriteFailure(payload, null, FailureReason.ACTIVITY_NOT_FOUND, null);
             return;
         }
 
+        // unique key 判断是否已存在该订单记录（防止 MQ 消息重复消费）
         OrderRecordEntity order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
         boolean createdNewOrder = false;
         if (order == null) {
             try {
+                // 首次消费该消息，插入一条初始状态（INIT，免支付）的订单记录
                 order = createInitOrder(payload, BigDecimal.ZERO, PAY_STATUS_NO_NEED);
                 createdNewOrder = true;
             } catch (DataAccessException exception) {
+                // 异常捕获机制：高并发下别的线程/消息刚好同时插入成功引发唯一索引冲突
+                // 降级查询，把刚才别人建好的订单查出来继续后面的流程
                 order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
                 if (order == null) {
+                    // 如果冲突了还没查到（极其罕见的 DB 异常），则认定失败，执行补偿链路
                     compensateAndWriteFailure(payload, null, FailureReason.ORDER_CREATE_FAILED, activity);
                     return;
                 }
             }
         }
 
+        // 3. 真实库存扣减（仅真正创建新订单的该次处理去做）
+        // reservePersistedStock 是走数据库的乐观锁减库存 (UPDATE ... SET stock=stock-1 WHERE stock>0)
         if (createdNewOrder && !reservePersistedStock(payload.activityId(), payload.userId())) {
+            // 如果扣减失败（说明 DB 里库存没了，即使 redis 里有库存），标记 DB 订单为失败
             markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+            // 回写 redis 弥补预扣数据，并向前端轮询接口返回抢购失败信息
             compensateRedisOnly(payload.activityId(), payload.userId());
             writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
             return;
         }
 
+        // 4. 处理重复投递/重试投递的消息：判断历史订单最终状态
         if (isSuccess(order)) {
+            // 订单已经成功且发过码了，直接重新写一次成功状态进 Redis 让前端可见，避免重发码
             writeSuccess(payload.activityId(), payload.userId(), order, assignedCodeValue(order), activity);
             return;
         }
         if (isFailed(order)) {
+            // 订单在以前的处理中已经宣告失败，同样重写状态给前端，直接中断
             writeFailure(payload.activityId(), payload.userId(), order, FailureReason.fromStoredValue(order.getFailReason()), activity);
             return;
         }
 
+        // 5. 核心业务处理：发兑换码与订单结案
         try {
+            // 调用发码领域服务（比如自动生成码或者是去库存池里剥离导入的码）
             String code = issueCode(payload, order);
+            // 修改 DB 订单状态为成功 (ORDER_STATUS_CONFIRMED)
             markOrderSuccess(order, payload.userId());
+            // 将成功结果（包含兑换码）向 Redis 推送，前端轮询接口此时就能拿到正常结果展示了
             writeSuccess(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), code, activity);
         } catch (BusinessFailureException exception) {
+            // 业务型异常失败（例如导入码不够发了、系统按规则生成码超过重试次数失败）
             markOrderFailed(order, exception.reason(), payload.userId(), null);
+            // 此时不但要回退 Redis 的预扣，连第 3 步刚刚实际扣减的 DB 真实库存也要加回去
             compensate(payload);
             writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), exception.reason(), activity);
         } catch (DataAccessException exception) {
+            // 框架底层抛出的底层数据库异常处理（例如服务突然断开连接、超长超时报错）
             if (order.getId() != null) {
                 markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+                // 同样需要进行全量补偿（回退 DB 库存和 Redis 预扣）
                 compensate(payload);
                 writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
                 return;

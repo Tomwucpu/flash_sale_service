@@ -16,6 +16,7 @@ public record OrderCreatePayload(
         if (event == null) {
             throw new IllegalArgumentException("order.create 事件不能为空");
         }
+        // 校验 MQ 传过来的 payload 是否是一个 Map 结构
         if (!(event.payload() instanceof Map<?, ?> rawPayload)) {
             throw new IllegalArgumentException("order.create 事件载荷格式非法");
         }

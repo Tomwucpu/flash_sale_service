@@ -225,6 +225,7 @@ public class OrderProcessingService {
         }
     }
 
+    // 订单支付超时未支付，主动关闭订单
     @Transactional
     public void handleOrderTimeoutClose(OrderTimeoutClosePayload payload) {
         OrderRecordEntity order = orderRecordMapper.findByOrderNo(payload.orderNo());

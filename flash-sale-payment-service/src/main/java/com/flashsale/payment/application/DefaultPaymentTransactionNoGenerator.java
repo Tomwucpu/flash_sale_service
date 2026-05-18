@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicInteger;
 
+// 生成支付交易流水号
 @Component
 public class DefaultPaymentTransactionNoGenerator implements PaymentTransactionNoGenerator {
 

@@ -10,7 +10,6 @@ import com.flashsale.payment.mapper.PaymentRecordMapper;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,10 +69,12 @@ public class PaymentService {
         validatePayableOrder(order);
 
         PaymentRecordEntity existing = paymentRecordMapper.findLatestByOrderNo(orderNo);
+        // 如果已经存在支付流水（可能是之前创建的，也可能是支付回调后创建的），则直接返回
         if (existing != null) {
             return toView(existing);
         }
 
+        // 创建支付流水
         PaymentRecordEntity entity = new PaymentRecordEntity();
         entity.setOrderNo(orderNo);
         entity.setTransactionNo(paymentTransactionNoGenerator.nextTransactionNo());
@@ -88,6 +89,7 @@ public class PaymentService {
         return toView(entity);
     }
 
+    // 处理支付回调
     @Transactional
     public PaymentOrderView handleCallback(String orderNo, String transactionNo, Map<String, Object> callbackPayload) {
         OrderRecordEntity order = requireOrder(orderNo);

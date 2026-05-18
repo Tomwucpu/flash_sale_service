@@ -8,51 +8,70 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 订单记录实体类
+ * 用于映射数据库中的订单核心交易数据表
+ */
 @TableName("order_record")
 public class OrderRecordEntity {
 
+    /** 主键自增ID */
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 业务订单号 (对外展示和流转使用) */
     @TableField("order_no")
     private String orderNo;
 
+    /** 关联的秒杀活动ID */
     @TableField("activity_id")
     private Long activityId;
 
+    /** 下单用户ID */
     @TableField("user_id")
     private Long userId;
 
+    /** 全链路请求追踪ID (防重/排查日志) */
     @TableField("request_id")
     private String requestId;
 
+    /** 购买操作防重唯一键 (例如 userId + activityId) */
     @TableField("purchase_unique_key")
     private String purchaseUniqueKey;
 
+    /** 订单整体状态 (如: PENDING, SUCCESS, CANCELED) */
     @TableField("order_status")
     private String orderStatus;
 
+    /** 支付状态 (如: UNPAID, PAID, REFUNDED) */
     @TableField("pay_status")
     private String payStatus;
 
+    /** 兑换码发放状态 (如: UNISSUED, ISSUED) */
     @TableField("code_status")
     private String codeStatus;
 
+    /** 订单实际需支付金额 */
     @TableField("price_amount")
     private BigDecimal priceAmount;
 
+    /** 订单失败或取消原因 */
     @TableField("fail_reason")
     private String failReason;
 
+    /** 最后更新时间 */
     @TableField("updated_at")
     private LocalDateTime updatedAt;
 
+    /** 创建人ID */
     @TableField("created_by")
     private Long createdBy;
 
+    /** 更新人ID */
     @TableField("updated_by")
     private Long updatedBy;
 
+    /** 逻辑删除标志 (通常0代表正常，1代表删除) */
     @TableField("is_deleted")
     private Integer isDeleted;
 

@@ -7,41 +7,57 @@ import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
+/**
+ * 审计日志实体类
+ * 用于记录核心业务数据变更和关键操作轨迹
+ */
 @TableName("audit_log")
 public class AuditLogEntity {
 
+    /** 主键自增ID */
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 业务分类 (诸如: ORDER, PAYMENT) */
     @TableField("biz_type")
     private String bizType;
 
+    /** 业务主键标识 (诸如: 订单号、支付流水号) */
     @TableField("biz_key")
     private String bizKey;
 
+    /** 具体操作行为 (诸如: CREATE, UPDATE, CANCEL) */
     private String operation;
 
+    /** 执行该操作的用户ID */
     @TableField("operator_id")
     private Long operatorId;
 
+    /** 全链路追踪的 Request ID */
     @TableField("request_id")
     private String requestId;
 
+    /** 操作前后的数据快照或详情 (JSON格式存储) */
     @TableField("detail_json")
     private String detailJson;
 
+    /** 创建时间 */
     @TableField("created_at")
     private LocalDateTime createdAt;
 
+    /** 更新时间 */
     @TableField("updated_at")
     private LocalDateTime updatedAt;
 
+    /** 创建人ID */
     @TableField("created_by")
     private Long createdBy;
 
+    /** 更新人ID */
     @TableField("updated_by")
     private Long updatedBy;
 
+    /** 逻辑删除标志 (通常0代表正常，1代表删除) */
     @TableField("is_deleted")
     private Integer isDeleted;
 

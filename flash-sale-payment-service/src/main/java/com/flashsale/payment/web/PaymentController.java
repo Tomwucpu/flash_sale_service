@@ -28,6 +28,7 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+    // 创建支付订单
     @PostMapping("/orders/{orderNo}")
     public ApiResponse<PaymentOrderResponse> createPayment(
             @PathVariable String orderNo,
@@ -49,6 +50,7 @@ public class PaymentController {
         );
     }
 
+    // 处理支付回调
     @PostMapping("/callback")
     public ApiResponse<PaymentOrderResponse> callback(
             @Valid @RequestBody PaymentCallbackRequest requestBody,

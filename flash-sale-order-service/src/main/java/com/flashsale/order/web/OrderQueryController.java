@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 订单查询控制器
+ */
 @RestController
 @RequestMapping("/api/orders")
 public class OrderQueryController {
@@ -26,9 +29,13 @@ public class OrderQueryController {
         this.orderProcessingService = orderProcessingService;
     }
 
+    /**
+     * 查询当前登录用户的“我的订单”列表
+     */
     @GetMapping
     public ApiResponse<List<OrderQueryResponse>> queryOwnOrders(HttpServletRequest request) {
         Long currentUserId = currentUserId();
+        // 底层服务根据当前用户ID查询所有的历史订单细节视图
         List<OrderProcessingService.OrderDetailView> detailViews = orderProcessingService.queryOrdersByUser(currentUserId);
         return ApiResponse.success(
                 request.getHeader(REQUEST_ID_HEADER),
@@ -36,6 +43,9 @@ public class OrderQueryController {
         );
     }
 
+    /**
+     * 查询当前用户在特定活动下的订单记录
+     */
     @GetMapping("/activities/{activityId}")
     public ApiResponse<List<OrderQueryResponse>> queryByActivityId(
             @PathVariable Long activityId,
@@ -49,6 +59,9 @@ public class OrderQueryController {
         );
     }
 
+    /**
+     * 查询特定活动下的【所有】订单列表
+     */
     @GetMapping("/admin/activities/{activityId}")
     @RequireRole({"ADMIN", "PUBLISHER"})
     public ApiResponse<List<OrderQueryResponse>> queryPublisherActivityOrders(
@@ -65,6 +78,9 @@ public class OrderQueryController {
         );
     }
 
+    /**
+     * 提取并校验当前登录用户的身份（如果无登录态则直接抛权限异常拦截）
+     */
     private Long currentUserId() {
         UserContext userContext = UserContextHolder.get();
         if (userContext == null || userContext.userId() == null || userContext.userId() <= 0) {
@@ -73,6 +89,9 @@ public class OrderQueryController {
         return userContext.userId();
     }
 
+    /**
+     * 将服务层输出的视图 DTO (OrderDetailView) 转化为面向 Web 或前端的响应装载类 (OrderQueryResponse)
+     */
     private List<OrderQueryResponse> toResponse(List<OrderProcessingService.OrderDetailView> detailViews) {
         return detailViews.stream()
                 .map(detailView -> new OrderQueryResponse(

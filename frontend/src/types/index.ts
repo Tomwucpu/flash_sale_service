@@ -39,6 +39,16 @@ export interface RegisterPayload {
   phone?: string
 }
 
+export interface UpdateProfilePayload {
+  nickname?: string | null
+  phone?: string | null
+}
+
+export interface ChangePasswordPayload {
+  oldPassword: string
+  newPassword: string
+}
+
 export type PurchaseLimitType = 'SINGLE' | 'MULTI'
 export type CodeSourceMode = 'SYSTEM_GENERATED' | 'THIRD_PARTY_IMPORTED'
 export type PublishMode = 'IMMEDIATE' | 'SCHEDULED'

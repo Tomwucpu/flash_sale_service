@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -122,6 +123,112 @@ class UserAuthControllerTest {
                 .andExpect(jsonPath("$.data.id").value(user.get("id").asLong()))
                 .andExpect(jsonPath("$.data.username").value(username))
                 .andExpect(jsonPath("$.data.role").value("USER"));
+    }
+
+    @Test
+    void updateProfileChangesCurrentUsersNicknameAndPhone() throws Exception {
+        JsonNode user = register(uniqueUsername("profile"), "FlashSale@123");
+
+        mockMvc.perform(put("/api/users/me/profile")
+                        .header(UserContext.USER_ID_HEADER, user.get("id").asLong())
+                        .header(UserContext.USERNAME_HEADER, user.get("username").asText())
+                        .header(UserContext.ROLE_HEADER, "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "新昵称",
+                                  "phone": "13900000002"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.id").value(user.get("id").asLong()))
+                .andExpect(jsonPath("$.data.nickname").value("新昵称"))
+                .andExpect(jsonPath("$.data.phone").value("13900000002"));
+
+        mockMvc.perform(get("/api/users/me")
+                        .header(UserContext.USER_ID_HEADER, user.get("id").asLong())
+                        .header(UserContext.USERNAME_HEADER, user.get("username").asText())
+                        .header(UserContext.ROLE_HEADER, "USER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("新昵称"))
+                .andExpect(jsonPath("$.data.phone").value("13900000002"));
+    }
+
+    @Test
+    void updateProfileRequiresLogin() throws Exception {
+        mockMvc.perform(put("/api/users/me/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "未登录用户"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void changePasswordAllowsLoginWithNewPasswordOnly() throws Exception {
+        String username = uniqueUsername("password");
+        String oldPassword = "FlashSale@123";
+        String newPassword = "FlashSale@456";
+        JsonNode user = register(username, oldPassword);
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .header(UserContext.USER_ID_HEADER, user.get("id").asLong())
+                        .header(UserContext.USERNAME_HEADER, username)
+                        .header(UserContext.ROLE_HEADER, "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "oldPassword": "%s",
+                                  "newPassword": "%s"
+                                }
+                                """.formatted(oldPassword, newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "%s",
+                                  "password": "%s"
+                                }
+                                """.formatted(username, oldPassword)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "%s",
+                                  "password": "%s"
+                                }
+                                """.formatted(username, newPassword)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.username").value(username));
+    }
+
+    @Test
+    void changePasswordRejectsWrongOldPassword() throws Exception {
+        JsonNode user = register(uniqueUsername("wrongpwd"), "FlashSale@123");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .header(UserContext.USER_ID_HEADER, user.get("id").asLong())
+                        .header(UserContext.USERNAME_HEADER, user.get("username").asText())
+                        .header(UserContext.ROLE_HEADER, "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "oldPassword": "WrongPass@123",
+                                  "newPassword": "FlashSale@456"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
     }
 
     @Test

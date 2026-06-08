@@ -2,14 +2,17 @@ package com.flashsale.user.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.flashsale.common.security.context.UserContext;
+import com.flashsale.common.security.exception.UnauthorizedException;
 import com.flashsale.common.security.jwt.JwtTokenService;
 import com.flashsale.user.domain.UserEntity;
 import com.flashsale.user.domain.UserRole;
 import com.flashsale.user.domain.UserStatus;
 import com.flashsale.user.mapper.UserMapper;
+import com.flashsale.user.web.dto.ChangePasswordRequest;
 import com.flashsale.user.web.dto.LoginRequest;
 import com.flashsale.user.web.dto.LoginResponse;
 import com.flashsale.user.web.dto.RegisterRequest;
+import com.flashsale.user.web.dto.UpdateProfileRequest;
 import com.flashsale.user.web.dto.UserProfileResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -92,5 +95,39 @@ public class UserAuthService {
                 new UserContext(userEntity.getId(), userEntity.getUsername(), userEntity.getRole())
         );
         return new LoginResponse(accessToken, UserProfileResponse.fromEntity(userEntity));
+    }
+
+    @Transactional
+    public UserProfileResponse updateProfile(UserContext userContext, UpdateProfileRequest request) {
+        UserEntity userEntity = currentUserEntity(userContext);
+        userEntity.setNickname(request.nickname());
+        userEntity.setPhone(request.phone());
+        userMapper.updateById(userEntity);
+        return UserProfileResponse.fromEntity(userEntity);
+    }
+
+    @Transactional
+    public void changePassword(UserContext userContext, ChangePasswordRequest request) {
+        UserEntity userEntity = currentUserEntity(userContext);
+        if (!passwordEncoder.matches(request.oldPassword(), userEntity.getPasswordHash())) {
+            throw new IllegalArgumentException("旧密码错误");
+        }
+        userEntity.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userMapper.updateById(userEntity);
+    }
+
+    private UserEntity currentUserEntity(UserContext userContext) {
+        if (userContext == null || userContext.userId() == null || userContext.userId() <= 0) {
+            throw new UnauthorizedException("未登录或登录状态已失效");
+        }
+        UserEntity userEntity = userMapper.selectOne(
+                new LambdaQueryWrapper<UserEntity>()
+                        .eq(UserEntity::getId, userContext.userId())
+                        .eq(UserEntity::getIsDeleted, 0)
+        );
+        if (userEntity == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        return userEntity;
     }
 }

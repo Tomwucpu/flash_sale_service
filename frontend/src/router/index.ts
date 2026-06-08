@@ -73,6 +73,11 @@ const router = createRouter({
           component: () => import('@/views/admin/ActivityEditorView.vue'),
           meta: { title: '编辑活动' },
         },
+        {
+          path: 'profile',
+          component: () => import('@/views/ProfileView.vue'),
+          meta: { title: '我的' },
+        },
       ],
     },
     {
@@ -87,6 +92,11 @@ const router = createRouter({
           path: 'orders',
           component: () => import('@/views/user/UserOrderListView.vue'),
           meta: { title: '我的订单' },
+        },
+        {
+          path: 'profile',
+          component: () => import('@/views/ProfileView.vue'),
+          meta: { title: '我的' },
         },
       ],
     },

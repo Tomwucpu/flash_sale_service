@@ -74,6 +74,10 @@ export const useAuthStore = defineStore('auth', {
       this.persistSession()
       return profile
     },
+    updateCurrentUser(profile: UserProfile) {
+      this.currentUser = profile
+      this.persistSession()
+    },
     logout() {
       this.clearSession()
     },

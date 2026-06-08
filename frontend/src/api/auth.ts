@@ -1,5 +1,12 @@
 import { http } from '@/api/http'
-import type { LoginPayload, LoginResponse, RegisterPayload, UserProfile } from '@/types'
+import type {
+  ChangePasswordPayload,
+  LoginPayload,
+  LoginResponse,
+  RegisterPayload,
+  UpdateProfilePayload,
+  UserProfile,
+} from '@/types'
 
 export const authApi = {
   register(payload: RegisterPayload) {
@@ -10,6 +17,12 @@ export const authApi = {
   },
   me() {
     return http.get<UserProfile>('/api/users/me')
+  },
+  updateProfile(payload: UpdateProfilePayload) {
+    return http.put<UserProfile>('/api/users/me/profile', payload)
+  },
+  changePassword(payload: ChangePasswordPayload) {
+    return http.put<void>('/api/users/me/password', payload)
   },
   getUserById(userId: number) {
     return http.get<UserProfile>(`/api/users/${userId}`)

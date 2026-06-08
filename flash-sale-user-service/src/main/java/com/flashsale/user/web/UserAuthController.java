@@ -5,15 +5,18 @@ import com.flashsale.common.security.auth.RequireRole;
 import com.flashsale.common.security.context.UserContextHolder;
 import com.flashsale.user.service.UserAuthService;
 import com.flashsale.user.service.UserQueryService;
+import com.flashsale.user.web.dto.ChangePasswordRequest;
 import com.flashsale.user.web.dto.LoginRequest;
 import com.flashsale.user.web.dto.LoginResponse;
 import com.flashsale.user.web.dto.RegisterRequest;
+import com.flashsale.user.web.dto.UpdateProfileRequest;
 import com.flashsale.user.web.dto.UserProfileResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,6 +62,26 @@ public class UserAuthController {
     }
 
     // 根据 userId 查询用户信息
+    @PutMapping("/me/profile")
+    public ApiResponse<UserProfileResponse> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        return ApiResponse.success(
+                requestId(httpServletRequest),
+                userAuthService.updateProfile(UserContextHolder.get(), request)
+        );
+    }
+
+    @PutMapping("/me/password")
+    public ApiResponse<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        userAuthService.changePassword(UserContextHolder.get(), request);
+        return ApiResponse.success(requestId(httpServletRequest), null);
+    }
+
     @RequireRole({"ADMIN", "PUBLISHER"})
     @GetMapping("/{userId}")
     public ApiResponse<UserProfileResponse> getUserById(

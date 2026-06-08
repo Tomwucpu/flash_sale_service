@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { House, LogOut, PanelLeft, ShoppingBag } from 'lucide-vue-next'
+import { House, LogOut, PanelLeft, ShoppingBag, UserRound } from 'lucide-vue-next'
 import AppBrand from '@/components/AppBrand.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -28,6 +28,10 @@ function handleLogout() {
         <RouterLink class="user-shell__nav-item" to="/user/orders">
           <ShoppingBag :size="18" />
           <span v-if="appStore.sidebarOpen">我的订单</span>
+        </RouterLink>
+        <RouterLink class="user-shell__nav-item" to="/user/profile">
+          <UserRound :size="18" />
+          <span v-if="appStore.sidebarOpen">我的</span>
         </RouterLink>
       </nav>
     </aside>

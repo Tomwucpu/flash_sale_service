@@ -65,6 +65,15 @@ watch(
 )
 
 watch(
+  () => form.totalStock,
+  (totalStock) => {
+    if (form.purchaseLimitCount > totalStock) {
+      form.purchaseLimitCount = totalStock
+    }
+  },
+)
+
+watch(
   () => form.publishMode,
   (publishMode) => {
     if (publishMode === 'IMMEDIATE') {
@@ -197,7 +206,7 @@ onMounted(loadDetail)
               <el-segmented v-model="form.purchaseLimitType" :options="purchaseLimitOptions" block />
             </el-form-item>
             <el-form-item label="限购次数">
-              <el-input-number v-model="form.purchaseLimitCount" :min="1" :disabled="form.purchaseLimitType === 'SINGLE'" />
+              <el-input-number v-model="form.purchaseLimitCount" :min="1" :max="form.totalStock" :disabled="form.purchaseLimitType === 'SINGLE'" />
             </el-form-item>
           </div>
           <div class="flat-grid flat-grid--2">

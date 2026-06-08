@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleAlert, History, Megaphone, PenSquare, ReceiptText, SquareArrowOutUpRight, Upload } from 'lucide-vue-next'
+import { CircleAlert, Megaphone, PenSquare, ReceiptText, SquareArrowOutUpRight, Upload } from 'lucide-vue-next'
 import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'

@@ -11,4 +11,7 @@ export const exportApi = {
   downloadFile(fileName: string) {
     return http.downloadBlob(`/api/exports/files/${encodeURIComponent(fileName)}`)
   },
+  downloadExport(payload: ExportTaskCreatePayload) {
+    return http.postDownloadBlob('/api/exports/files', payload)
+  },
 }

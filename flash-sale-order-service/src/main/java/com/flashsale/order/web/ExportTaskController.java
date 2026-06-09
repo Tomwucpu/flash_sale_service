@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.List;
 
@@ -102,6 +103,20 @@ public class ExportTaskController {
     @RequireRole({"ADMIN", "PUBLISHER"})
     public ResponseEntity<Resource> download(@PathVariable String fileName) {
         return exportTaskService.downloadFile(fileName);
+    }
+
+    @PostMapping("/files")
+    @RequireRole({"ADMIN", "PUBLISHER"})
+    public ResponseEntity<StreamingResponseBody> streamDownload(@Valid @RequestBody ExportTaskCreateRequest request) {
+        return exportTaskService.streamExportFile(
+                new ExportTaskService.ExportTaskCreateCommand(
+                        request.activityId(),
+                        request.format(),
+                        request.filters(),
+                        UserContextHolder.get().userId(),
+                        null
+                )
+        );
     }
 
     private ExportTaskResponse toResponse(ExportTaskService.ExportTaskView view) {

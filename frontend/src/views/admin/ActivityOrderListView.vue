@@ -13,7 +13,6 @@ import { formatDisplayDateTime } from '@/utils/date'
 import {
   buildSoldCodeExportPayload,
   canExportSoldCodes,
-  getExportFileName,
 } from '@/utils/export-task'
 import {
   codeStatusTone,
@@ -55,32 +54,6 @@ async function loadOrders() {
   }
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms)
-  })
-}
-
-async function waitForExportTask(taskId: number) {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    await wait(1000)
-    const task = await exportApi.getTask(taskId)
-
-    if (task.status === 'SUCCESS') {
-      if (!task.fileUrl) {
-        throw new Error('导出任务已完成，但未返回下载地址')
-      }
-      return task
-    }
-
-    if (task.status === 'FAILED') {
-      throw new Error(task.failReason || '导出任务失败')
-    }
-  }
-
-  throw new Error('导出任务超时，请稍后重试')
-}
-
 function downloadBlob(blob: Blob, fileName: string) {
   const objectUrl = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -101,15 +74,8 @@ async function handleExportSoldCodes() {
 
   exporting.value = true
   try {
-    const task = await exportApi.createTask(buildSoldCodeExportPayload(activityId.value))
-    const completedTask = task.status === 'SUCCESS' ? task : await waitForExportTask(task.id)
-
-    if (!completedTask.fileUrl) {
-      throw new Error('导出任务未返回下载地址')
-    }
-
-    const fileName = getExportFileName(completedTask.fileUrl, `activity-${activityId.value}-sold-codes.csv`)
-    const blob = await exportApi.downloadFile(fileName)
+    const fileName = `activity-${activityId.value}-sold-codes.csv`
+    const blob = await exportApi.downloadExport(buildSoldCodeExportPayload(activityId.value))
 
     downloadBlob(blob, fileName)
     ElMessage.success('导出文件已下载')

@@ -14,7 +14,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -39,13 +40,23 @@ class ExportTaskControllerTest {
     private RabbitTemplate rabbitTemplate;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         jdbcTemplate.update("delete from compensation_record");
         jdbcTemplate.update("delete from audit_log");
         jdbcTemplate.update("delete from export_task");
         jdbcTemplate.update("delete from redeem_code");
         jdbcTemplate.update("delete from order_record");
         jdbcTemplate.update("delete from activity_product");
+        Files.createDirectories(Path.of("target/test-exports"));
+        try (var paths = Files.list(Path.of("target/test-exports"))) {
+            paths.forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (Exception ignored) {
+                    // test cleanup best effort
+                }
+            });
+        }
     }
 
     @Test
@@ -72,22 +83,22 @@ class ExportTaskControllerTest {
                 .andExpect(jsonPath("$.requestId").value("REQ-EXPORT-001"))
                 .andExpect(jsonPath("$.data.activityId").value(activityId))
                 .andExpect(jsonPath("$.data.format").value("CSV"))
-                .andExpect(jsonPath("$.data.status").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.fileUrl").isNotEmpty());
+                .andExpect(jsonPath("$.data.status").value("INIT"))
+                .andExpect(jsonPath("$.data.fileUrl").doesNotExist());
 
         assertThat(jdbcTemplate.queryForMap("select * from export_task where activity_id = ?", activityId))
                 .containsEntry("operator_id", 3001L)
                 .containsEntry("format", "CSV")
-                .containsEntry("status", "SUCCESS");
+                .containsEntry("status", "INIT");
     }
 
     @Test
-    void publisherCanCreateAndDownloadSoldCodeExportWithoutAsyncConsumer() throws Exception {
+    void publisherCanStreamSoldCodeExportWithoutCreatingServerFile() throws Exception {
         Long activityId = insertActivity();
         Long orderId = insertOrder("SO202604200601", activityId, 6001L, "CONFIRMED", "PAID", "ISSUED");
         insertAssignedCode(activityId, orderId, 6001L, "SOLD-DOWNLOAD-CODE-001");
 
-        mockMvc.perform(post("/api/exports/tasks")
+        mockMvc.perform(post("/api/exports/files")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {
@@ -104,20 +115,16 @@ class ExportTaskControllerTest {
                         .header(UserContext.ROLE_HEADER, "PUBLISHER")
                         .header("X-Request-Id", "REQ-EXPORT-SOLD"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.status").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.fileUrl").isNotEmpty());
-
-        Map<String, Object> task = jdbcTemplate.queryForMap("select * from export_task where activity_id = ?", activityId);
-        String fileUrl = (String) task.get("file_url");
-        String fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
-
-        mockMvc.perform(get("/api/exports/files/{fileName}", fileName)
-                        .header(UserContext.USER_ID_HEADER, 3001L)
-                        .header(UserContext.USERNAME_HEADER, "publisher")
-                        .header(UserContext.ROLE_HEADER, "PUBLISHER"))
-                .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("SOLD-DOWNLOAD-CODE-001")));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(1) from export_task where activity_id = ?",
+                Long.class,
+                activityId
+        )).isZero();
+        try (var files = Files.list(Path.of("target/test-exports"))) {
+            assertThat(files).isEmpty();
+        }
     }
 
     @Test

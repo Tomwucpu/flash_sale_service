@@ -151,4 +151,12 @@ export const http = {
       url,
     })
   },
+  postDownloadBlob(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return requestBlob({
+      ...config,
+      method: 'POST',
+      url,
+      data,
+    })
+  },
 }

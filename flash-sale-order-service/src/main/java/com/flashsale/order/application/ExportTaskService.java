@@ -20,15 +20,19 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.nio.charset.StandardCharsets;
@@ -79,7 +83,7 @@ public class ExportTaskService {
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
             Clock clock,
-            @Value("${flash-sale.export.directory:./exports}") String exportDirectory
+            @Value("${flash-sale.export.directory:${user.home}/flash-sale-exports}") String exportDirectory
     ) {
         this.activityProductMapper = activityProductMapper;
         this.exportTaskMapper = exportTaskMapper;
@@ -122,8 +126,25 @@ public class ExportTaskService {
                         "filters", command.filters()
                 )
         );
-        processTask(new ExportGeneratePayload(entity.getId()));
+        publishExportGenerate(entity.getId());
         return toView(exportTaskMapper.findByIdActive(entity.getId()));
+    }
+
+    public ResponseEntity<StreamingResponseBody> streamExportFile(ExportTaskCreateCommand command) {
+        ActivityProductEntity activity = loadActivity(command.activityId());
+        if (activity == null) {
+            throw new IllegalArgumentException("活动不存在");
+        }
+        String format = normalizeFormat(command.format());
+        List<ExportRow> rows = queryRows(command.activityId(), command.filters() == null ? Map.of() : command.filters());
+        String fileName = buildFileName(command.activityId(), format);
+        MediaType mediaType = MediaTypeFactory.getMediaType(fileName).orElse(MediaType.APPLICATION_OCTET_STREAM);
+        StreamingResponseBody body = outputStream -> writeStream(outputStream, format, rows);
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .body(body);
     }
 
     public ExportTaskView getTask(Long taskId) {
@@ -350,12 +371,19 @@ public class ExportTaskService {
     }
 
     private void writeFile(Path filePath, String format, List<ExportRow> rows) throws IOException {
+        try (OutputStream outputStream = Files.newOutputStream(filePath)) {
+            writeStream(outputStream, format, rows);
+        }
+    }
+
+    private void writeStream(OutputStream outputStream, String format, List<ExportRow> rows) throws IOException {
         if ("CSV".equals(format)) {
-            writeCsv(filePath, rows);
+            writeCsv(outputStream, rows);
             return;
         }
         if ("XLSX".equals(format)) {
-            EasyExcel.write(filePath.toFile(), ExportExcelRow.class)
+            EasyExcel.write(outputStream, ExportExcelRow.class)
+                    .autoCloseStream(false)
                     .sheet("orders")
                     .doWrite(rows.stream().map(ExportExcelRow::from).toList());
             return;
@@ -363,25 +391,25 @@ public class ExportTaskService {
         throw new IllegalArgumentException("不支持的导出格式");
     }
 
-    private void writeCsv(Path filePath, List<ExportRow> rows) throws IOException {
-        try (BufferedWriter writer = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8)) {
-            writer.write("orderNo,userId,activityId,orderStatus,payStatus,codeStatus,priceAmount,code,updatedAt");
+    private void writeCsv(OutputStream outputStream, List<ExportRow> rows) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+        writer.write("orderNo,userId,activityId,orderStatus,payStatus,codeStatus,priceAmount,code,updatedAt");
+        writer.newLine();
+        for (ExportRow row : rows) {
+            writer.write(String.join(",",
+                    csv(row.orderNo()),
+                    csv(String.valueOf(row.userId())),
+                    csv(String.valueOf(row.activityId())),
+                    csv(row.orderStatus()),
+                    csv(row.payStatus()),
+                    csv(row.codeStatus()),
+                    csv(row.priceAmount().toPlainString()),
+                    csv(Optional.ofNullable(row.code()).orElse("")),
+                    csv(row.updatedAt() == null ? "" : row.updatedAt().toString())
+            ));
             writer.newLine();
-            for (ExportRow row : rows) {
-                writer.write(String.join(",",
-                        csv(row.orderNo()),
-                        csv(String.valueOf(row.userId())),
-                        csv(String.valueOf(row.activityId())),
-                        csv(row.orderStatus()),
-                        csv(row.payStatus()),
-                        csv(row.codeStatus()),
-                        csv(row.priceAmount().toPlainString()),
-                        csv(Optional.ofNullable(row.code()).orElse("")),
-                        csv(row.updatedAt() == null ? "" : row.updatedAt().toString())
-                ));
-                writer.newLine();
-            }
         }
+        writer.flush();
     }
 
     private List<ExportRow> queryRows(Long activityId, Map<String, Object> filters) {
@@ -434,9 +462,20 @@ public class ExportTaskService {
     }
 
     private String buildFileName(ExportTaskEntity entity) {
-        String suffix = "CSV".equals(entity.getFormat()) ? ".csv" : ".xlsx";
+        return buildFileName(entity.getActivityId(), entity.getFormat(), entity.getId());
+    }
+
+    private String buildFileName(Long activityId, String format) {
+        return buildFileName(activityId, format, null);
+    }
+
+    private String buildFileName(Long activityId, String format, Long taskId) {
+        String suffix = "CSV".equals(format) ? ".csv" : ".xlsx";
         String timestamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(LocalDateTime.now(clock));
-        return "activity-%d-export-%d-%s%s".formatted(entity.getActivityId(), entity.getId(), timestamp, suffix);
+        if (taskId == null) {
+            return "activity-%d-export-%s%s".formatted(activityId, timestamp, suffix);
+        }
+        return "activity-%d-export-%d-%s%s".formatted(activityId, taskId, timestamp, suffix);
     }
 
     private void recordAudit(

@@ -53,4 +53,4 @@ mybatis-plus:
 
 flash-sale:
   export:
-    directory: ${FLASH_SALE_EXPORT_DIR:./exports}
+    directory: ${FLASH_SALE_EXPORT_DIR:${user.home}/flash-sale-exports}

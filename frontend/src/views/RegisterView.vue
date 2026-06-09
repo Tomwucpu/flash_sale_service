@@ -9,12 +9,22 @@ import { authApi } from '@/api/auth'
 const router = useRouter()
 
 const loading = ref(false)
-const form = reactive({
+type RegisterRole = 'USER' | 'PUBLISHER'
+
+const form = reactive<{
+  username: string
+  password: string
+  confirmPassword: string
+  nickname: string
+  phone: string
+  role: RegisterRole
+}>({
   username: '',
   password: '',
   confirmPassword: '',
   nickname: '',
   phone: '',
+  role: 'USER',
 })
 
 function normalizeOptional(value: string) {
@@ -48,6 +58,7 @@ async function handleRegister() {
     const profile = await authApi.register({
       username: form.username.trim(),
       password: form.password,
+      role: form.role,
       nickname: normalizeOptional(form.nickname),
       phone: normalizeOptional(form.phone),
     })
@@ -77,8 +88,8 @@ async function handleRegister() {
       <h1 class="poster-title">用户注册</h1>
       <article class="flat-panel flat-panel--green register-page__poster-card">
         <ShieldPlus :size="28" />
-        <strong>注册后默认角色为 USER</strong>
-        <span>可参与公开活动浏览、秒杀与下单流程</span>
+        <strong>注册时可选择 USER 或 PUBLISHER</strong>
+        <span>用户参与抢购，发布者可进入后台发布和管理活动</span>
       </article>
     </section>
 
@@ -90,6 +101,12 @@ async function handleRegister() {
       </div>
 
       <el-form class="register-page__form flat-panel" label-position="top" @submit.prevent="handleRegister">
+        <el-form-item label="账号类型">
+          <el-radio-group v-model="form.role" class="register-page__role-group">
+            <el-radio-button value="USER">普通用户</el-radio-button>
+            <el-radio-button value="PUBLISHER">发布者</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="用户名">
           <el-input v-model="form.username" placeholder="请输入用户名" />
         </el-form-item>
@@ -171,6 +188,16 @@ async function handleRegister() {
 .register-page__form {
   display: grid;
   gap: 0.45rem;
+}
+
+.register-page__role-group {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.register-page__role-group :deep(.el-radio-button__inner) {
+  width: 100%;
 }
 
 .register-page__submit,

@@ -35,6 +35,7 @@ export interface LoginPayload {
 export interface RegisterPayload {
   username: string
   password: string
+  role?: 'PUBLISHER' | 'USER'
   nickname?: string
   phone?: string
 }

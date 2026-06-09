@@ -58,13 +58,26 @@ public class UserAuthService {
         userEntity.setUsername(request.username());
         // 落库前对明文密码进行加密
         userEntity.setPasswordHash(passwordEncoder.encode(request.password()));
-        // 新注册用户默认普通用户角色且状态为启用
-        userEntity.setRole(UserRole.USER.name());
+        // 新注册用户只允许普通用户或发布者角色，状态为启用
+        userEntity.setRole(resolveRegistrationRole(request.role()).name());
         userEntity.setStatus(UserStatus.ENABLED.name());
         userEntity.setNickname(request.nickname());
         userEntity.setPhone(request.phone());
         userMapper.insert(userEntity);
         return UserProfileResponse.fromEntity(userEntity);
+    }
+
+    private UserRole resolveRegistrationRole(String role) {
+        if (role == null || role.isBlank()) {
+            return UserRole.USER;
+        }
+        if (UserRole.USER.name().equals(role)) {
+            return UserRole.USER;
+        }
+        if (UserRole.PUBLISHER.name().equals(role)) {
+            return UserRole.PUBLISHER;
+        }
+        throw new IllegalArgumentException("role only supports USER or PUBLISHER");
     }
 
     /**

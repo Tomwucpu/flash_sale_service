@@ -70,6 +70,45 @@ class UserAuthControllerTest {
     }
 
     @Test
+    void registerCreatesPublisherWhenRoleIsPublisher() throws Exception {
+        String username = uniqueUsername("publisher");
+
+        mockMvc.perform(post("/api/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "%s",
+                                  "password": "FlashSale@123",
+                                  "nickname": "Publisher",
+                                  "role": "PUBLISHER"
+                                }
+                                """.formatted(username)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.username").value(username))
+                .andExpect(jsonPath("$.data.role").value("PUBLISHER"))
+                .andExpect(jsonPath("$.data.status").value("ENABLED"));
+    }
+
+    @Test
+    void registerRejectsAdminRoleFromPublicApi() throws Exception {
+        String username = uniqueUsername("admin");
+
+        mockMvc.perform(post("/api/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "%s",
+                                  "password": "FlashSale@123",
+                                  "nickname": "Admin",
+                                  "role": "ADMIN"
+                                }
+                                """.formatted(username)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
     void registerRejectsDuplicateUsername() throws Exception {
         String username = uniqueUsername("repeat");
 

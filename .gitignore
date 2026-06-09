@@ -8,3 +8,5 @@ logs/
 out/
 deploy/data/
 docs/
+__pycache__/
+*.pyc

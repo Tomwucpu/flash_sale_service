@@ -53,9 +53,19 @@ const showPaymentPanel = computed(
     seckillResult.value?.status === 'PENDING_PAYMENT' &&
     Boolean(currentOrderNo.value),
 )
+const isOutOfStock = computed(() => {
+  const activity = detail.value
+  return activity !== null && activity.availableStock <= 0
+})
+const seckillButtonLabel = computed(() => {
+  if (isOutOfStock.value) {
+    return '暂无库存'
+  }
+  return seckillAttempting.value ? '提交中...' : '立即抢购'
+})
 
 const canAttemptSeckill = computed(() => {
-  if (!detail.value || !isAuthenticated.value || seckillAttempting.value) {
+  if (!detail.value || !isAuthenticated.value || seckillAttempting.value || isOutOfStock.value) {
     return false
   }
   return detail.value.publishStatus === 'PUBLISHED' && detail.value.phase === 'ONGOING'
@@ -76,6 +86,9 @@ const attemptBlockedReason = computed(() => {
   }
   if (detail.value.phase === 'ENDED') {
     return '活动已结束'
+  }
+  if (isOutOfStock.value) {
+    return '暂无库存'
   }
   return ''
 })
@@ -341,7 +354,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="detail-hero__seckill" v-if="detail.phase !== 'ENDED'">
           <button class="flat-button detail-hero__seckill-button" type="button" :disabled="!canAttemptSeckill" @click="handleAttemptSeckill">
-            {{ seckillAttempting ? '提交中...' : '立即抢购' }}
+            {{ seckillButtonLabel }}
           </button>
 
           <div class="detail-hero__payment" v-if="showPaymentPanel">

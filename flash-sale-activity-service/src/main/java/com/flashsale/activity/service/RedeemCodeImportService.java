@@ -15,6 +15,7 @@ import com.flashsale.activity.web.dto.RedeemCodeImportBatchDetailResponse;
 import com.flashsale.activity.web.dto.RedeemCodeImportBatchSummaryResponse;
 import com.flashsale.activity.web.dto.RedeemCodeImportFailureResponse;
 import com.flashsale.common.security.context.UserContext;
+import com.flashsale.common.security.exception.ForbiddenException;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -81,7 +82,7 @@ public class RedeemCodeImportService {
      */
     @Transactional
     public RedeemCodeImportBatchDetailResponse importCodes(Long activityId, MultipartFile file, UserContext userContext) {
-        ActivityEntity activity = getRequiredActivity(activityId);
+        ActivityEntity activity = getRequiredActivity(activityId, userContext);
         validateImportActivity(activity);
         validateFile(file);
 
@@ -166,8 +167,8 @@ public class RedeemCodeImportService {
      * @param activityId 活动ID
      * @return 导入批次摘要信息的列表
      */
-    public List<RedeemCodeImportBatchSummaryResponse> listBatches(Long activityId) {
-        getRequiredActivity(activityId);
+    public List<RedeemCodeImportBatchSummaryResponse> listBatches(Long activityId, UserContext userContext) {
+        getRequiredActivity(activityId, userContext);
         return redeemCodeImportBatchMapper.selectList(
                         new LambdaQueryWrapper<RedeemCodeImportBatchEntity>()
                                 .eq(RedeemCodeImportBatchEntity::getActivityId, activityId)
@@ -185,8 +186,8 @@ public class RedeemCodeImportService {
      * @param batchNo    导入批次号
      * @return 批次详细信息和失败记录明细
      */
-    public RedeemCodeImportBatchDetailResponse getBatchDetail(Long activityId, String batchNo) {
-        getRequiredActivity(activityId);
+    public RedeemCodeImportBatchDetailResponse getBatchDetail(Long activityId, String batchNo, UserContext userContext) {
+        getRequiredActivity(activityId, userContext);
         RedeemCodeImportBatchEntity batch = redeemCodeImportBatchMapper.selectOne(
                 new LambdaQueryWrapper<RedeemCodeImportBatchEntity>()
                         .eq(RedeemCodeImportBatchEntity::getActivityId, activityId)
@@ -347,7 +348,7 @@ public class RedeemCodeImportService {
         }
     }
 
-    private ActivityEntity getRequiredActivity(Long activityId) {
+    private ActivityEntity getRequiredActivity(Long activityId, UserContext userContext) {
         ActivityEntity activity = activityMapper.selectOne(
                 new LambdaQueryWrapper<ActivityEntity>()
                         .eq(ActivityEntity::getId, activityId)
@@ -357,7 +358,21 @@ public class RedeemCodeImportService {
         if (activity == null) {
             throw new IllegalArgumentException("活动不存在");
         }
+        requireActivityAccess(activity, userContext);
         return activity;
+    }
+
+    private void requireActivityAccess(ActivityEntity activity, UserContext userContext) {
+        if (userContext != null && "ADMIN".equals(userContext.role())) {
+            return;
+        }
+        if (userContext != null
+                && "PUBLISHER".equals(userContext.role())
+                && activity.getCreatedBy() != null
+                && activity.getCreatedBy().equals(userContext.userId())) {
+            return;
+        }
+        throw new ForbiddenException("当前用户无权访问该活动");
     }
 
     private RedeemCodeEntity successCode(Long activityId, String batchNo, String code, Long operatorId) {

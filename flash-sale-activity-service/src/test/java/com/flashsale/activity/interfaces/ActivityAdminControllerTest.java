@@ -177,6 +177,52 @@ class ActivityAdminControllerTest {
     }
 
     @Test
+    void publisherListOnlyReturnsOwnActivities() throws Exception {
+        Long ownActivityId = insertActivity("自己的活动", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(5), nowPlusMinutes(10), nowPlusMinutes(30), 10, BigDecimal.ZERO, false, 1L);
+        insertActivity("其他发布者活动", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(5), nowPlusMinutes(10), nowPlusMinutes(30), 10, BigDecimal.ZERO, false, 2L);
+
+        mockMvc.perform(publisher(get("/api/activities"), 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].id").value(ownActivityId));
+    }
+
+    @Test
+    void publisherCannotViewOtherPublisherActivityDetail() throws Exception {
+        Long otherActivityId = insertActivity("其他发布者详情", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(5), nowPlusMinutes(10), nowPlusMinutes(30), 10, BigDecimal.ZERO, false, 2L);
+
+        mockMvc.perform(publisher(get("/api/activities/{activityId}", otherActivityId), 1L))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void publisherCannotUpdateOtherPublisherActivity() throws Exception {
+        Long otherActivityId = insertActivity("其他发布者待编辑", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
+                nowPlusMinutes(5), nowPlusMinutes(10), nowPlusMinutes(30), 10, BigDecimal.ZERO, false, 2L);
+
+        mockMvc.perform(publisher(put("/api/activities/{activityId}", otherActivityId), 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(activityJson(
+                                "越权编辑",
+                                "SYSTEM_GENERATED",
+                                "IMMEDIATE",
+                                null,
+                                nowPlusMinutes(10),
+                                nowPlusMinutes(40),
+                                20,
+                                BigDecimal.ZERO,
+                                false
+                        )))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
     void publishImmediateMarksPublishedAndWarmsUpCache() throws Exception {
         Long activityId = insertActivity("立即发布活动", "SYSTEM_GENERATED", "IMMEDIATE", "UNPUBLISHED",
                 nowPlusMinutes(1), nowPlusMinutes(10), nowPlusMinutes(30), 12, BigDecimal.ZERO, false);
@@ -466,17 +512,25 @@ class ActivityAdminControllerTest {
     }
 
     private MockHttpServletRequestBuilder admin(MockHttpServletRequestBuilder builder) {
-        return builder
-                .header("X-Request-Id", "REQ-ACTIVITY-001")
-                .header(UserContext.USER_ID_HEADER, 1L)
-                .header(UserContext.USERNAME_HEADER, "publisher")
-                .header(UserContext.ROLE_HEADER, "PUBLISHER");
+        return publisher(builder, 1L);
     }
 
     private MockMultipartHttpServletRequestBuilder admin(MockMultipartHttpServletRequestBuilder builder) {
+        return publisher(builder, 1L);
+    }
+
+    private MockHttpServletRequestBuilder publisher(MockHttpServletRequestBuilder builder, long publisherId) {
+        return builder
+                .header("X-Request-Id", "REQ-ACTIVITY-001")
+                .header(UserContext.USER_ID_HEADER, publisherId)
+                .header(UserContext.USERNAME_HEADER, "publisher-" + publisherId)
+                .header(UserContext.ROLE_HEADER, "PUBLISHER");
+    }
+
+    private MockMultipartHttpServletRequestBuilder publisher(MockMultipartHttpServletRequestBuilder builder, long publisherId) {
         builder.header("X-Request-Id", "REQ-ACTIVITY-001");
-        builder.header(UserContext.USER_ID_HEADER, 1L);
-        builder.header(UserContext.USERNAME_HEADER, "publisher");
+        builder.header(UserContext.USER_ID_HEADER, publisherId);
+        builder.header(UserContext.USERNAME_HEADER, "publisher-" + publisherId);
         builder.header(UserContext.ROLE_HEADER, "PUBLISHER");
         return builder;
     }
@@ -493,12 +547,29 @@ class ActivityAdminControllerTest {
             BigDecimal priceAmount,
             boolean needPayment
     ) {
+        return insertActivity(title, codeSourceMode, publishMode, publishStatus, publishTime, startTime, endTime,
+                stock, priceAmount, needPayment, 1L);
+    }
+
+    private Long insertActivity(
+            String title,
+            String codeSourceMode,
+            String publishMode,
+            String publishStatus,
+            LocalDateTime publishTime,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            int stock,
+            BigDecimal priceAmount,
+            boolean needPayment,
+            Long createdBy
+    ) {
         jdbcTemplate.update("""
                         insert into activity_product (
                           title, description, cover_url, total_stock, available_stock, price_amount, need_payment,
                           purchase_limit_type, purchase_limit_count, code_source_mode, publish_mode, publish_status,
-                          publish_time, start_time, end_time, version, is_deleted
-                        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                          publish_time, start_time, end_time, version, created_by, updated_by, is_deleted
+                        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0)
                         """,
                 title,
                 title + "描述",
@@ -514,7 +585,9 @@ class ActivityAdminControllerTest {
                 publishStatus,
                 publishTime,
                 startTime,
-                endTime
+                endTime,
+                createdBy,
+                createdBy
         );
         return jdbcTemplate.queryForObject("select max(id) from activity_product", Long.class);
     }

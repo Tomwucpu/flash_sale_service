@@ -14,6 +14,7 @@ import com.flashsale.activity.web.dto.ActivityDetailResponse;
 import com.flashsale.activity.web.dto.ActivitySummaryResponse;
 import com.flashsale.activity.web.dto.ActivityUpdateRequest;
 import com.flashsale.common.security.context.UserContext;
+import com.flashsale.common.security.exception.ForbiddenException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +74,7 @@ public class ActivityService {
     @Transactional
     public ActivityDetailResponse update(Long activityId, ActivityUpdateRequest request, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
+        requireActivityAccess(activity, userContext);
         if (!PublishStatus.UNPUBLISHED.name().equals(activity.getPublishStatus())) {
             throw new IllegalArgumentException("仅未发布活动允许编辑");
         }
@@ -100,16 +102,21 @@ public class ActivityService {
         return toDetailResponse(activity);
     }
 
-    public ActivityDetailResponse getDetail(Long activityId) {
-        return toDetailResponse(getRequiredActivity(activityId));
+    public ActivityDetailResponse getDetail(Long activityId, UserContext userContext) {
+        ActivityEntity activity = getRequiredActivity(activityId);
+        requireActivityAccess(activity, userContext);
+        return toDetailResponse(activity);
     }
 
-    public List<ActivitySummaryResponse> list() {
-        return activityMapper.selectList(
-                        new LambdaQueryWrapper<ActivityEntity>()
-                                .eq(ActivityEntity::getIsDeleted, 0)
-                                .orderByDesc(ActivityEntity::getId)
-                ).stream()
+    public List<ActivitySummaryResponse> list(UserContext userContext) {
+        LambdaQueryWrapper<ActivityEntity> query = new LambdaQueryWrapper<ActivityEntity>()
+                .eq(ActivityEntity::getIsDeleted, 0);
+        if (isPublisher(userContext)) {
+            query.eq(ActivityEntity::getCreatedBy, userContext.userId());
+        } else if (!isAdmin(userContext)) {
+            throw new ForbiddenException("当前用户无权访问该活动");
+        }
+        return activityMapper.selectList(query.orderByDesc(ActivityEntity::getId)).stream()
                 .map(this::toSummaryResponse)
                 .toList();
     }
@@ -133,6 +140,7 @@ public class ActivityService {
     @Transactional
     public ActivityDetailResponse publish(Long activityId, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
+        requireActivityAccess(activity, userContext);
         validatePublish(activity);
 
         if (PublishMode.SCHEDULED.name().equals(activity.getPublishMode()) && activity.getPublishTime().isAfter(LocalDateTime.now())) {
@@ -148,6 +156,7 @@ public class ActivityService {
     @Transactional
     public ActivityDetailResponse advancePublish(Long activityId, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
+        requireActivityAccess(activity, userContext);
         validatePublish(activity);
         return toDetailResponse(doPublish(activity, operatorId(userContext), true));
     }
@@ -155,6 +164,7 @@ public class ActivityService {
     @Transactional
     public ActivityDetailResponse offline(Long activityId, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
+        requireActivityAccess(activity, userContext);
         activity.setPublishStatus(PublishStatus.OFFLINE.name());
         activity.setUpdatedBy(operatorId(userContext));
         activityMapper.updateById(activity);
@@ -165,6 +175,7 @@ public class ActivityService {
     @Transactional
     public void delete(Long activityId, UserContext userContext) {
         ActivityEntity activity = getRequiredActivity(activityId);
+        requireActivityAccess(activity, userContext);
         if (!PublishStatus.UNPUBLISHED.name().equals(activity.getPublishStatus())
                 && !PublishStatus.OFFLINE.name().equals(activity.getPublishStatus())) {
             throw new IllegalArgumentException("仅未发布或已下线活动允许删除");
@@ -298,6 +309,26 @@ public class ActivityService {
             throw new IllegalArgumentException("活动不存在");
         }
         return activity;
+    }
+
+    private void requireActivityAccess(ActivityEntity activity, UserContext userContext) {
+        if (isAdmin(userContext)) {
+            return;
+        }
+        if (isPublisher(userContext)
+                && activity.getCreatedBy() != null
+                && activity.getCreatedBy().equals(userContext.userId())) {
+            return;
+        }
+        throw new ForbiddenException("当前用户无权访问该活动");
+    }
+
+    private boolean isAdmin(UserContext userContext) {
+        return userContext != null && "ADMIN".equals(userContext.role());
+    }
+
+    private boolean isPublisher(UserContext userContext) {
+        return userContext != null && "PUBLISHER".equals(userContext.role());
     }
 
     private ActivitySummaryResponse toSummaryResponse(ActivityEntity activity) {

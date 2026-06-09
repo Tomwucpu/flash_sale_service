@@ -73,13 +73,16 @@ public class ActivityAdminController {
             @PathVariable Long activityId,
             HttpServletRequest httpServletRequest
     ) {
-        return ApiResponse.success(requestId(httpServletRequest), activityService.getDetail(activityId));
+        return ApiResponse.success(
+                requestId(httpServletRequest),
+                activityService.getDetail(activityId, UserContextHolder.get())
+        );
     }
 
     @GetMapping
     @RequireRole({"ADMIN", "PUBLISHER"})
     public ApiResponse<List<ActivitySummaryResponse>> list(HttpServletRequest httpServletRequest) {
-        return ApiResponse.success(requestId(httpServletRequest), activityService.list());
+        return ApiResponse.success(requestId(httpServletRequest), activityService.list(UserContextHolder.get()));
     }
 
     @PostMapping("/{activityId}/publish")
@@ -149,7 +152,7 @@ public class ActivityAdminController {
     ) {
         return ApiResponse.success(
                 requestId(httpServletRequest),
-                redeemCodeImportService.listBatches(activityId)
+                redeemCodeImportService.listBatches(activityId, UserContextHolder.get())
         );
     }
 
@@ -162,7 +165,7 @@ public class ActivityAdminController {
     ) {
         return ApiResponse.success(
                 requestId(httpServletRequest),
-                redeemCodeImportService.getBatchDetail(activityId, batchNo)
+                redeemCodeImportService.getBatchDetail(activityId, batchNo, UserContextHolder.get())
         );
     }
 

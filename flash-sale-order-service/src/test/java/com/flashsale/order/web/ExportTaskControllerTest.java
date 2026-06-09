@@ -14,11 +14,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,13 +72,52 @@ class ExportTaskControllerTest {
                 .andExpect(jsonPath("$.requestId").value("REQ-EXPORT-001"))
                 .andExpect(jsonPath("$.data.activityId").value(activityId))
                 .andExpect(jsonPath("$.data.format").value("CSV"))
-                .andExpect(jsonPath("$.data.status").value("INIT"))
-                .andExpect(jsonPath("$.data.fileUrl").doesNotExist());
+                .andExpect(jsonPath("$.data.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.fileUrl").isNotEmpty());
 
         assertThat(jdbcTemplate.queryForMap("select * from export_task where activity_id = ?", activityId))
                 .containsEntry("operator_id", 3001L)
                 .containsEntry("format", "CSV")
-                .containsEntry("status", "INIT");
+                .containsEntry("status", "SUCCESS");
+    }
+
+    @Test
+    void publisherCanCreateAndDownloadSoldCodeExportWithoutAsyncConsumer() throws Exception {
+        Long activityId = insertActivity();
+        Long orderId = insertOrder("SO202604200601", activityId, 6001L, "CONFIRMED", "PAID", "ISSUED");
+        insertAssignedCode(activityId, orderId, 6001L, "SOLD-DOWNLOAD-CODE-001");
+
+        mockMvc.perform(post("/api/exports/tasks")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "activityId": %d,
+                                  "format": "CSV",
+                                  "filters": {
+                                    "orderStatus": "CONFIRMED",
+                                    "codeStatus": "ISSUED"
+                                  }
+                                }
+                                """.formatted(activityId))
+                        .header(UserContext.USER_ID_HEADER, 3001L)
+                        .header(UserContext.USERNAME_HEADER, "publisher")
+                        .header(UserContext.ROLE_HEADER, "PUBLISHER")
+                        .header("X-Request-Id", "REQ-EXPORT-SOLD"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.fileUrl").isNotEmpty());
+
+        Map<String, Object> task = jdbcTemplate.queryForMap("select * from export_task where activity_id = ?", activityId);
+        String fileUrl = (String) task.get("file_url");
+        String fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
+
+        mockMvc.perform(get("/api/exports/files/{fileName}", fileName)
+                        .header(UserContext.USER_ID_HEADER, 3001L)
+                        .header(UserContext.USERNAME_HEADER, "publisher")
+                        .header(UserContext.ROLE_HEADER, "PUBLISHER"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("SOLD-DOWNLOAD-CODE-001")));
     }
 
     @Test
@@ -154,5 +195,46 @@ class ExportTaskControllerTest {
                 "PUBLISHED"
         );
         return jdbcTemplate.queryForObject("select max(id) from activity_product", Long.class);
+    }
+
+    private Long insertOrder(
+            String orderNo,
+            Long activityId,
+            Long userId,
+            String orderStatus,
+            String payStatus,
+            String codeStatus
+    ) {
+        jdbcTemplate.update("""
+                        insert into order_record (
+                          order_no, activity_id, user_id, request_id, purchase_unique_key, order_status,
+                          pay_status, code_status, price_amount, fail_reason, updated_at, is_deleted
+                        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
+                        """,
+                orderNo,
+                activityId,
+                userId,
+                "REQ-" + orderNo,
+                "activity:%d:user:%d:req:%s".formatted(activityId, userId, "REQ-" + orderNo),
+                orderStatus,
+                payStatus,
+                codeStatus,
+                BigDecimal.TEN,
+                null
+        );
+        return jdbcTemplate.queryForObject("select max(id) from order_record", Long.class);
+    }
+
+    private void insertAssignedCode(Long activityId, Long orderId, Long userId, String code) {
+        jdbcTemplate.update("""
+                        insert into redeem_code (
+                          activity_id, code, source_type, status, assigned_user_id, assigned_order_id, assigned_at, is_deleted
+                        ) values (?, ?, 'THIRD_PARTY_IMPORTED', 'ASSIGNED', ?, ?, CURRENT_TIMESTAMP, 0)
+                        """,
+                activityId,
+                code,
+                userId,
+                orderId
+        );
     }
 }

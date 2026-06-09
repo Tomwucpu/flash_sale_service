@@ -122,7 +122,7 @@ public class ExportTaskService {
                         "filters", command.filters()
                 )
         );
-        publishExportGenerate(entity.getId());
+        processTask(new ExportGeneratePayload(entity.getId()));
         return toView(exportTaskMapper.findByIdActive(entity.getId()));
     }
 

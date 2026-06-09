@@ -7,13 +7,13 @@
 ### 前端能力
 
 - 公开端：平台首页、活动列表、活动详情、登录后参与抢购、自动轮询抢购结果、待支付订单模拟支付、活动内订单查询。
-- 后台端：活动列表、新建/编辑/删除活动、立即发布/提前发布/下线、兑换码 `csv/xlsx` 导入、导入批次记录查看、活动订单查看、已售兑换码导出。
-- 用户端：注册、登录、我的订单列表、订单状态查看、兑换码查看。
+- 后台端：活动列表、新建/编辑/删除活动、立即发布/提前发布/下线、兑换码 `csv/xlsx` 导入、导入批次记录查看、活动订单查看、已售兑换码导出、个人资料维护。
+- 用户端：注册、登录、我的订单列表、订单状态查看、兑换码查看、个人资料与密码修改。
 
 ### 后端能力
 
 - `flash-sale-gateway`：统一接入 `/api/**`，通过 Nacos 服务发现转发到各微服务。
-- `flash-sale-user-service`：注册、登录、JWT 鉴权、当前用户信息查询。
+- `flash-sale-user-service`：注册、登录、JWT 鉴权、当前用户信息查询、资料维护、密码修改。
 - `flash-sale-activity-service`：活动 CRUD、公开活动查询、发布/下线、兑换码导入、Redis 活动缓存、定时发布扫描。
 - `flash-sale-seckill-service`：基于 Redis + Lua 处理抢购请求，查询抢购结果，并通过 RabbitMQ 投递下单事件。
 - `flash-sale-order-service`：消费下单事件、查询用户/发布方订单、生成兑换码、异步导出、补偿记录处理、超时未支付订单自动关闭。
@@ -32,15 +32,7 @@ flash_sale_service/
 ├─ deploy/
 │  ├─ docker-compose.yml
 │  └─ sql/
-│     ├─ 01_schema.sql
-│     └─ 02_seed_user.sql
 ├─ docs/
-│  ├─ 前端接口文档.md
-│  ├─ 后端接口文档.md
-│  ├─ 项目日志.md
-│  ├─ 高并发秒杀兑换平台功能需求与技术架构文档.md
-│  ├─ 高并发秒杀兑换平台详细设计与实施拆解文档.md
-│  └─ redeem-code-import-template-100.xlsx
 ├─ flash-sale-common/
 │  ├─ common-core/
 │  ├─ common-mq/
@@ -166,13 +158,15 @@ npm run dev
 | 后台 | `/admin/activities/:id` | 活动详情、导码批次、发布/下线 |
 | 后台 | `/admin/activities/:id/edit` | 编辑活动 |
 | 后台 | `/admin/activities/:id/orders` | 活动订单与兑换码导出 |
+| 后台 | `/admin/profile` | 我的资料与密码修改 |
 | 用户 | `/user/orders` | 我的订单 |
+| 用户 | `/user/profile` | 我的资料与密码修改 |
 
 ## 后端 API 概览
 
 | 模块 | 路由前缀 | 说明 |
 | --- | --- | --- |
-| User Service | `/api/users` | 注册、登录、当前用户、用户查询 |
+| User Service | `/api/users` | 注册、登录、当前用户、资料维护、密码修改、用户查询 |
 | Activity Service | `/api/activities` | 后台活动管理、发布、下线、导入兑换码 |
 | Activity Service | `/api/public/activities` | 公开活动列表与详情 |
 | Seckill Service | `/api/seckill` | 抢购发起、抢购结果查询 |
@@ -189,7 +183,7 @@ npm run dev
 - 秒杀请求由 Redis 库存键、限购键和 Lua 脚本共同控制，避免超卖。
 - 抢购成功后会异步投递下单事件，前端活动详情页会自动轮询结果。
 - 待支付订单默认按 15 分钟超时关闭，订单服务会定时扫描并执行关闭逻辑。
-- 发布方可以查看活动订单，并异步导出已售兑换码文件。
+- 发布方可以查看活动订单，并直接下载已售兑换码文件；后端也保留异步导出任务接口。
 - 导出文件默认写入服务运行目录下的 `exports/`，可通过 `FLASH_SALE_EXPORT_DIR` 覆盖。
 - 各服务日志默认写入 `logs/<spring.application.name>.log`。
 - **UI交互与体验优化**：全面升级页面响应式布局以适配多端，优化系统各主题配色、核心模块排版（如活动详情与兑换码导入）及活动时间展示。

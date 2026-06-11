@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { RefreshCw } from 'lucide-vue-next'
+import { ArrowLeft, RefreshCw } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
 import { seckillApi } from '@/api/seckill'
 import { ApiClientError } from '@/api/request'
@@ -126,6 +126,10 @@ function stopPolling() {
     clearTimeout(pollingTimer)
     pollingTimer = null
   }
+}
+
+function goToPublicActivities() {
+  router.push('/public/activities')
 }
 
 function schedulePolling() {
@@ -334,6 +338,17 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page-shell" v-loading="loading" v-if="detail">
+    <div class="detail-hero__top">
+      <button
+        class="flat-button flat-button--ghost detail-hero__back"
+        type="button"
+        data-testid="back-to-public-activities"
+        @click="goToPublicActivities"
+      >
+        <ArrowLeft :size="18" />
+        返回活动列表
+      </button>
+    </div>
     <section class="detail-hero">
       <div class="detail-hero__image">
         <img :src="detail.coverUrl" :alt="detail.title" />
@@ -515,6 +530,15 @@ onBeforeUnmount(() => {
       </article>
   </div>
   <div class="page-shell" v-else>
+    <button
+      class="flat-button flat-button--ghost detail-hero__back"
+      type="button"
+      data-testid="back-to-public-activities-empty"
+      @click="goToPublicActivities"
+    >
+      <ArrowLeft :size="18" />
+      返回活动列表
+    </button>
     <section class="flat-panel flat-panel--amber">
       <div class="eyebrow">Public Detail</div>
       <h1 class="poster-title">活动不存在</h1>
@@ -556,6 +580,16 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   padding: 1.5rem;
   background: #dbeafe;
+}
+
+.detail-hero__top {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.detail-hero__back {
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
 }
 
 .detail-hero__badges,

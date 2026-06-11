@@ -43,17 +43,15 @@ async function handleLogin() {
   <div class="login-page">
     <section class="login-page__poster">
       <div class="eyebrow">Admin Access</div>
-      <h1 class="poster-title">后台登录</h1>
+      <h1 class="poster-title">登录</h1>
       <div class="login-page__stats">
         <article class="flat-panel flat-panel--blue">
           <ShieldCheck :size="26" />
           <strong>ADMIN / PUBLISHER</strong>
-          <span>活动管理权限</span>
         </article>
         <article class="flat-panel flat-panel--green">
           <UserRound :size="26" />
           <strong>USER</strong>
-          <span>订单后台</span>
         </article>
       </div>
     </section>
@@ -61,7 +59,7 @@ async function handleLogin() {
     <section class="login-page__form-wrap">
       <div class="page-header page-header--amber">
         <div class="eyebrow">Sign In</div>
-        <h2 class="login-page__heading">后台入口</h2>
+        <h2 class="login-page__heading">登录</h2>
         <p class="poster-copy">默认密码：<strong>FlashSale@123</strong></p>
       </div>
 
@@ -74,7 +72,7 @@ async function handleLogin() {
         </el-form-item>
         <button class="flat-button login-page__submit" type="button" :disabled="loading" @click="handleLogin">
           <Ticket :size="18" />
-          {{ loading ? '登录中...' : '进入控制台' }}
+          {{ loading ? '登录中...' : '登录' }}
           <ArrowRight :size="18" />
         </button>
       </el-form>

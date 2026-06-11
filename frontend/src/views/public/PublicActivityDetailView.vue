@@ -367,7 +367,7 @@ onBeforeUnmount(() => {
             :tone="detail.phase === 'ONGOING' ? 'blue' : detail.phase === 'PREVIEW' ? 'amber' : 'slate'"
           />
         </div>
-        <div class="detail-hero__seckill" v-if="detail.phase !== 'ENDED'">
+        <div class="detail-hero__seckill" v-if="detail.phase === 'ONGOING'">
           <button class="flat-button detail-hero__seckill-button" type="button" :disabled="!canAttemptSeckill" @click="handleAttemptSeckill">
             {{ seckillButtonLabel }}
           </button>

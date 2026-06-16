@@ -11,7 +11,7 @@ withDefaults(
 
 <template>
   <div class="app-brand" :class="{ 'app-brand--compact': compact }">
-    <span class="app-brand__mark">FS</span>
+    <img class="app-brand__mark" src="/favicon.svg" alt="Flash Sale Service" />
     <div class="app-brand__text">
       <div class="app-brand__title">Flash Sale Service</div>
       <div class="app-brand__subtitle">Flat Poster Console</div>
@@ -28,17 +28,12 @@ withDefaults(
 }
 
 .app-brand__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 2.75rem;
   height: 2.75rem;
-  background: var(--primary);
-  color: white;
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  border-radius: 6px;
   border: 2px solid var(--fg);
+  flex-shrink: 0;
 }
 
 .app-brand__text {

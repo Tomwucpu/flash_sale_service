@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AdminLayout from '@/layout/AdminLayout.vue'
 import PublicLayout from '@/layout/PublicLayout.vue'
-import UserLayout from '@/layout/UserLayout.vue'
+import ShellLayout from '@/layout/ShellLayout.vue'
 import { evaluateRouteGuard } from '@/router/guards'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -46,7 +45,7 @@ const router = createRouter({
     },
     {
       path: '/admin',
-      component: AdminLayout,
+      component: ShellLayout,
       children: [
         {
           path: 'activities',
@@ -82,7 +81,7 @@ const router = createRouter({
     },
     {
       path: '/user',
-      component: UserLayout,
+      component: ShellLayout,
       children: [
         {
           path: '',

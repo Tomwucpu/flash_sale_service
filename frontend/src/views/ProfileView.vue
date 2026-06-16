@@ -127,17 +127,15 @@ watch(currentUser, resetProfileForm, { immediate: true })
 
 <template>
   <div class="page-shell profile-page">
-    <section class="page-header page-header--blue profile-hero">
-      <div>
-        <div class="eyebrow">Profile</div>
-        <h1 class="poster-title">我的</h1>
-      </div>
+    <section class="page-header page-header--green profile-hero">
+      <div class="eyebrow">Profile</div>
+      <h1 class="poster-title">我的</h1>
       <div class="profile-summary">
         <article class="stat-block">
           <span>账号</span>
           <strong>{{ currentUser?.username ?? '-' }}</strong>
         </article>
-        <article class="stat-block" style="background: #d1fae5">
+        <article class="stat-block" style="background: #dbeafe">
           <span>角色</span>
           <strong>{{ roleLabels[currentUser?.role ?? ''] ?? currentUser?.role ?? '-' }}</strong>
         </article>
@@ -263,7 +261,7 @@ watch(currentUser, resetProfileForm, { immediate: true })
 }
 
 .profile-hero {
-  gap: 1.25rem;
+  gap: 0.75rem;
 }
 
 .profile-summary {

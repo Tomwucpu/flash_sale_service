@@ -1,6 +1,6 @@
 package com.flashsale.order.job;
 
-import com.flashsale.order.application.OrderProcessingService;
+import com.flashsale.order.service.OrderProcessingService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;

@@ -5,7 +5,7 @@ import com.flashsale.common.security.context.UserContext;
 import com.flashsale.common.security.exception.UnauthorizedException;
 import com.flashsale.user.domain.UserEntity;
 import com.flashsale.user.mapper.UserMapper;
-import com.flashsale.user.web.dto.UserProfileResponse;
+import com.flashsale.user.dto.response.UserProfileResponse;
 import org.springframework.stereotype.Service;
 
 @Service

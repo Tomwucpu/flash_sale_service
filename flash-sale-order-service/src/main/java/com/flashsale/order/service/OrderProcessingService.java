@@ -1,0 +1,599 @@
+package com.flashsale.order.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.flashsale.common.redis.RedisKeys;
+import com.flashsale.common.security.context.UserContext;
+import com.flashsale.common.security.exception.ForbiddenException;
+import com.flashsale.common.security.exception.UnauthorizedException;
+import com.flashsale.order.domain.ActivityProductEntity;
+import com.flashsale.order.domain.OrderRecordEntity;
+import com.flashsale.order.domain.RedeemCodeEntity;
+import com.flashsale.order.mapper.ActivityProductMapper;
+import com.flashsale.order.mapper.OrderRecordMapper;
+import com.flashsale.order.mapper.RedeemCodeMapper;
+import com.flashsale.order.mq.OrderCreatePayload;
+import com.flashsale.order.mq.OrderTimeoutClosePayload;
+import com.flashsale.order.mq.PaymentSuccessPayload;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+@Service
+public class OrderProcessingService {
+
+    private static final String ORDER_STATUS_INIT = "INIT";
+    private static final String ORDER_STATUS_CONFIRMED = "CONFIRMED";
+    private static final String ORDER_STATUS_CLOSED = "CLOSED";
+    private static final String ORDER_STATUS_FAILED = "FAILED";
+    private static final String PAY_STATUS_NO_NEED = "NO_NEED";
+    private static final String PAY_STATUS_WAIT_PAY = "WAIT_PAY";
+    private static final String PAY_STATUS_PAID = "PAID";
+    private static final String PAY_STATUS_CLOSED = "CLOSED";
+    private static final String CODE_STATUS_PENDING = "PENDING";
+    private static final String CODE_STATUS_ISSUED = "ISSUED";
+    private static final String CODE_STATUS_FAILED = "FAILED";
+    private static final int SYSTEM_CODE_MAX_ATTEMPTS = 5;
+    private static final int IMPORTED_CODE_CLAIM_MAX_ATTEMPTS = 3;
+
+    private final ActivityProductMapper activityProductMapper;
+    private final OrderRecordMapper orderRecordMapper;
+    private final RedeemCodeMapper redeemCodeMapper;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final OrderNoGenerator orderNoGenerator;
+    private final RedeemCodeGenerator redeemCodeGenerator;
+    private final Clock clock;
+
+    public OrderProcessingService(
+            ActivityProductMapper activityProductMapper,
+            OrderRecordMapper orderRecordMapper,
+            RedeemCodeMapper redeemCodeMapper,
+            StringRedisTemplate stringRedisTemplate,
+            OrderNoGenerator orderNoGenerator,
+            RedeemCodeGenerator redeemCodeGenerator,
+            Clock clock
+    ) {
+        this.activityProductMapper = activityProductMapper;
+        this.orderRecordMapper = orderRecordMapper;
+        this.redeemCodeMapper = redeemCodeMapper;
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.orderNoGenerator = orderNoGenerator;
+        this.redeemCodeGenerator = redeemCodeGenerator;
+        this.clock = clock;
+    }
+
+    @Transactional
+    public void handleFreeOrder(OrderCreatePayload payload) {
+        ActivityProductEntity activity = loadActivity(payload.activityId());
+        if (activity == null) {
+            // 若活动在数据库中被硬删，执行 Redis 补偿（加回库存等）并回写失败状态
+            compensateAndWriteFailure(payload, null, FailureReason.ACTIVITY_NOT_FOUND, null);
+            return;
+        }
+
+        // unique key 判断是否已存在该订单记录（防止 MQ 消息重复消费）
+        OrderRecordEntity order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
+        boolean createdNewOrder = false;
+        if (order == null) {
+            try {
+                // 首次消费该消息，插入一条初始状态（INIT，免支付）的订单记录
+                order = createInitOrder(payload, BigDecimal.ZERO, PAY_STATUS_NO_NEED);
+                createdNewOrder = true;
+            } catch (DataAccessException exception) {
+                // 异常捕获机制：高并发下别的线程/消息刚好同时插入成功引发唯一索引冲突
+                // 降级查询，把刚才别人建好的订单查出来继续后面的流程
+                order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
+                if (order == null) {
+                    // 如果冲突了还没查到（极其罕见的 DB 异常），则认定失败，执行补偿链路
+                    compensateAndWriteFailure(payload, null, FailureReason.ORDER_CREATE_FAILED, activity);
+                    return;
+                }
+            }
+        }
+
+        // 3. 真实库存扣减（仅真正创建新订单的该次处理去做）
+        // reservePersistedStock 是走数据库的乐观锁减库存 (UPDATE ... SET stock=stock-1 WHERE stock>0)
+        if (createdNewOrder && !reservePersistedStock(payload.activityId(), payload.userId())) {
+            // 如果扣减失败（说明 DB 里库存没了，即使 redis 里有库存），标记 DB 订单为失败
+            markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+            // 回写 redis 弥补预扣数据，并向前端轮询接口返回抢购失败信息
+            compensateRedisOnly(payload.activityId(), payload.userId());
+            writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
+            return;
+        }
+
+        // 4. 处理重复投递/重试投递的消息：判断历史订单最终状态
+        if (isSuccess(order)) {
+            // 订单已经成功且发过码了，直接重新写一次成功状态进 Redis 让前端可见，避免重发码
+            writeSuccess(payload.activityId(), payload.userId(), order, assignedCodeValue(order), activity);
+            return;
+        }
+        if (isFailed(order)) {
+            // 订单在以前的处理中已经宣告失败，同样重写状态给前端，直接中断
+            writeFailure(payload.activityId(), payload.userId(), order, FailureReason.fromStoredValue(order.getFailReason()), activity);
+            return;
+        }
+
+        // 5. 核心业务处理：发兑换码与订单结案
+        try {
+            // 调用发码领域服务（比如自动生成码或者是去库存池里剥离导入的码）
+            String code = issueCode(payload, order);
+            // 修改 DB 订单状态为成功 (ORDER_STATUS_CONFIRMED)
+            markOrderSuccess(order, payload.userId());
+            // 将成功结果（包含兑换码）向 Redis 推送，前端轮询接口此时就能拿到正常结果展示了
+            writeSuccess(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), code, activity);
+        } catch (BusinessFailureException exception) {
+            // 业务型异常失败（例如导入码不够发了、系统按规则生成码超过重试次数失败）
+            markOrderFailed(order, exception.reason(), payload.userId(), null);
+            // 此时不但要回退 Redis 的预扣，连第 3 步刚刚实际扣减的 DB 真实库存也要加回去
+            compensate(payload);
+            writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), exception.reason(), activity);
+        } catch (DataAccessException exception) {
+            // 框架底层抛出的底层数据库异常处理（例如服务突然断开连接、超长超时报错）
+            if (order.getId() != null) {
+                markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+                // 同样需要进行全量补偿（回退 DB 库存和 Redis 预扣）
+                compensate(payload);
+                writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
+                return;
+            }
+            compensateAndWriteFailure(payload, null, FailureReason.ORDER_CREATE_FAILED, activity);
+        }
+    }
+
+    @Transactional
+    public void handlePaymentOrder(OrderCreatePayload payload) {
+        ActivityProductEntity activity = loadActivity(payload.activityId());
+        if (activity == null) {
+            compensateAndWriteFailure(payload, null, FailureReason.ACTIVITY_NOT_FOUND, null);
+            return;
+        }
+
+        OrderRecordEntity order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
+        boolean createdNewOrder = false;
+        if (order == null) {
+            try {
+                order = createInitOrder(payload, activity.getPriceAmount(), PAY_STATUS_WAIT_PAY);
+                createdNewOrder = true;
+            } catch (DataAccessException exception) {
+                order = orderRecordMapper.findByPurchaseUniqueKey(payload.purchaseUniqueKey());
+                if (order == null) {
+                    compensateAndWriteFailure(payload, null, FailureReason.ORDER_CREATE_FAILED, activity);
+                    return;
+                }
+            }
+        }
+
+        if (createdNewOrder && !reservePersistedStock(payload.activityId(), payload.userId())) {
+            markOrderFailed(order, FailureReason.ORDER_CREATE_FAILED, payload.userId(), null);
+            compensateRedisOnly(payload.activityId(), payload.userId());
+            writeFailure(payload.activityId(), payload.userId(), orderRecordMapper.selectById(order.getId()), FailureReason.ORDER_CREATE_FAILED, activity);
+            return;
+        }
+
+        if (isSuccess(order)) {
+            writeSuccess(payload.activityId(), payload.userId(), order, assignedCodeValue(order), activity);
+            return;
+        }
+        if (isClosed(order)) {
+            writeFailure(payload.activityId(), payload.userId(), order, FailureReason.PAYMENT_TIMEOUT, activity);
+            return;
+        }
+        if (isFailed(order)) {
+            writeFailure(payload.activityId(), payload.userId(), order, FailureReason.fromStoredValue(order.getFailReason()), activity);
+            return;
+        }
+        writePendingPayment(payload.activityId(), payload.userId(), order, activity);
+    }
+
+    @Transactional
+    public void handlePaymentSuccess(PaymentSuccessPayload payload) {
+        OrderRecordEntity order = orderRecordMapper.findByOrderNo(payload.orderNo());
+        if (order == null) {
+            return;
+        }
+        ActivityProductEntity activity = loadActivity(order.getActivityId());
+        if (activity == null) {
+            return;
+        }
+        if (isClosed(order)) {
+            return;
+        }
+        if (isSuccess(order)) {
+            writeSuccess(order.getActivityId(), order.getUserId(), order, assignedCodeValue(order), activity);
+            return;
+        }
+        if (!PAY_STATUS_PAID.equals(order.getPayStatus())) {
+            markOrderPaid(order, order.getUserId());
+        }
+
+        try {
+            String code = issueCode(activity, order);
+            markOrderSuccess(order, order.getUserId());
+            writeSuccess(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), code, activity);
+        } catch (BusinessFailureException exception) {
+            markOrderFailed(order, exception.reason(), order.getUserId(), CODE_STATUS_FAILED);
+            writeFailure(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), exception.reason(), activity);
+        }
+    }
+
+    // 订单支付超时未支付，主动关闭订单
+    @Transactional
+    public void handleOrderTimeoutClose(OrderTimeoutClosePayload payload) {
+        OrderRecordEntity order = orderRecordMapper.findByOrderNo(payload.orderNo());
+        if (order == null || !PAY_STATUS_WAIT_PAY.equals(order.getPayStatus()) || isClosed(order) || isSuccess(order)) {
+            return;
+        }
+        ActivityProductEntity activity = loadActivity(order.getActivityId());
+        if (!closeWaitPayOrder(order, FailureReason.PAYMENT_TIMEOUT, order.getUserId())) {
+            return;
+        }
+        compensate(order.getActivityId(), order.getUserId());
+        writeFailure(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), FailureReason.PAYMENT_TIMEOUT, activity);
+    }
+
+    @Transactional
+    public int closeOverduePaymentOrders(Duration paymentTimeout, int batchSize) {
+        if (paymentTimeout == null || paymentTimeout.isNegative() || paymentTimeout.isZero()) {
+            throw new IllegalArgumentException("支付超时时间必须大于 0");
+        }
+        int effectiveBatchSize = Math.max(batchSize, 1);
+        LocalDateTime deadline = LocalDateTime.now(clock).minus(paymentTimeout);
+        List<OrderRecordEntity> overdueOrders = orderRecordMapper.findOverdueWaitPayOrders(deadline, effectiveBatchSize);
+        int closedCount = 0;
+        for (OrderRecordEntity order : overdueOrders) {
+            ActivityProductEntity activity = loadActivity(order.getActivityId());
+            if (!closeWaitPayOrder(order, FailureReason.PAYMENT_TIMEOUT, order.getUserId())) {
+                continue;
+            }
+            compensate(order.getActivityId(), order.getUserId());
+            writeFailure(order.getActivityId(), order.getUserId(), orderRecordMapper.selectById(order.getId()), FailureReason.PAYMENT_TIMEOUT, activity);
+            closedCount++;
+        }
+        return closedCount;
+    }
+
+    public List<OrderDetailView> queryOrdersByActivity(Long activityId, Long currentUserId) {
+        List<OrderRecordEntity> orders = orderRecordMapper.findByActivityIdAndUserId(activityId, currentUserId);
+        return toOrderDetailViews(orders);
+    }
+
+    public List<OrderDetailView> queryPublisherActivityOrders(Long activityId, UserContext userContext) {
+        ActivityProductEntity activity = loadActivity(activityId);
+        if (activity == null) {
+            throw new IllegalArgumentException("活动不存在");
+        }
+        if (userContext == null || userContext.userId() == null || userContext.userId() <= 0) {
+            throw new UnauthorizedException("未登录或登录状态已失效");
+        }
+        if ("PUBLISHER".equals(userContext.role()) && !Objects.equals(activity.getCreatedBy(), userContext.userId())) {
+            throw new ForbiddenException("无权查看该活动订单");
+        }
+
+        List<OrderRecordEntity> orders = orderRecordMapper.findByActivityId(activityId);
+        return toOrderDetailViews(orders);
+    }
+
+    public List<OrderDetailView> queryOrdersByUser(Long currentUserId) {
+        List<OrderRecordEntity> orders = orderRecordMapper.findByUserId(currentUserId);
+        return toOrderDetailViews(orders);
+    }
+
+    private List<OrderDetailView> toOrderDetailViews(List<OrderRecordEntity> orders) {
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+        List<OrderDetailView> views = new ArrayList<>(orders.size());
+        for (OrderRecordEntity order : orders) {
+            RedeemCodeEntity redeemCode = redeemCodeMapper.findByAssignedOrderId(order.getId());
+            views.add(new OrderDetailView(
+                    order.getOrderNo(),
+                    order.getActivityId(),
+                    order.getUserId(),
+                    order.getOrderStatus(),
+                    order.getPayStatus(),
+                    order.getCodeStatus(),
+                    order.getPriceAmount(),
+                    order.getFailReason(),
+                    redeemCode == null ? null : redeemCode.getCode(),
+                    order.getUpdatedAt()
+            ));
+        }
+        return views;
+    }
+
+    private ActivityProductEntity loadActivity(Long activityId) {
+        return activityProductMapper.selectOne(new LambdaQueryWrapper<ActivityProductEntity>()
+                .eq(ActivityProductEntity::getId, activityId)
+                .eq(ActivityProductEntity::getIsDeleted, 0)
+                .last("limit 1"));
+    }
+
+    private OrderRecordEntity createInitOrder(OrderCreatePayload payload, BigDecimal priceAmount, String payStatus) {
+        OrderRecordEntity entity = new OrderRecordEntity();
+        entity.setOrderNo(orderNoGenerator.nextOrderNo());
+        entity.setActivityId(payload.activityId());
+        entity.setUserId(payload.userId());
+        entity.setRequestId(payload.requestId());
+        entity.setPurchaseUniqueKey(payload.purchaseUniqueKey());
+        entity.setOrderStatus(ORDER_STATUS_INIT);
+        entity.setPayStatus(payStatus);
+        entity.setCodeStatus(CODE_STATUS_PENDING);
+        entity.setPriceAmount(priceAmount);
+        entity.setCreatedBy(payload.userId());
+        entity.setUpdatedBy(payload.userId());
+        entity.setIsDeleted(0);
+        orderRecordMapper.insert(entity);
+        return entity;
+    }
+
+    private String issueCode(OrderCreatePayload payload, OrderRecordEntity order) {
+        ActivityProductEntity activity = loadActivity(payload.activityId());
+        if (activity == null) {
+            throw new BusinessFailureException(FailureReason.ACTIVITY_NOT_FOUND);
+        }
+        return issueCode(activity, order);
+    }
+
+    private String issueCode(ActivityProductEntity activity, OrderRecordEntity order) {
+        RedeemCodeEntity assignedCode = redeemCodeMapper.findByAssignedOrderId(order.getId());
+        if (assignedCode != null) {
+            return assignedCode.getCode();
+        }
+        if ("THIRD_PARTY_IMPORTED".equals(activity.getCodeSourceMode())) {
+            return assignImportedCode(order);
+        }
+        return generateSystemCode(order);
+    }
+
+    private String assignImportedCode(OrderRecordEntity order) {
+        for (int attempt = 0; attempt < IMPORTED_CODE_CLAIM_MAX_ATTEMPTS; attempt++) {
+            RedeemCodeEntity candidate = redeemCodeMapper.findFirstAvailableCode(order.getActivityId());
+            if (candidate == null) {
+                throw new BusinessFailureException(FailureReason.IMPORTED_CODE_UNAVAILABLE);
+            }
+            LocalDateTime now = LocalDateTime.now(clock);
+            int updated = redeemCodeMapper.claimImportedCode(candidate.getId(), order.getUserId(), order.getId(), now);
+            if (updated == 1) {
+                return candidate.getCode();
+            }
+        }
+        throw new BusinessFailureException(FailureReason.IMPORTED_CODE_UNAVAILABLE);
+    }
+
+    private String generateSystemCode(OrderRecordEntity order) {
+        for (int attempt = 0; attempt < SYSTEM_CODE_MAX_ATTEMPTS; attempt++) {
+            String generatedCode = redeemCodeGenerator.nextCode();
+            RedeemCodeEntity entity = new RedeemCodeEntity();
+            entity.setActivityId(order.getActivityId());
+            entity.setCode(generatedCode);
+            entity.setSourceType("SYSTEM_GENERATED");
+            entity.setStatus("ASSIGNED");
+            entity.setAssignedUserId(order.getUserId());
+            entity.setAssignedOrderId(order.getId());
+            entity.setAssignedAt(LocalDateTime.now(clock));
+            entity.setCreatedBy(order.getUserId());
+            entity.setUpdatedBy(order.getUserId());
+            entity.setIsDeleted(0);
+            try {
+                redeemCodeMapper.insert(entity);
+                return generatedCode;
+            } catch (DataAccessException exception) {
+                if (attempt == SYSTEM_CODE_MAX_ATTEMPTS - 1) {
+                    throw new BusinessFailureException(FailureReason.SYSTEM_CODE_GENERATION_FAILED);
+                }
+            }
+        }
+        throw new BusinessFailureException(FailureReason.SYSTEM_CODE_GENERATION_FAILED);
+    }
+
+    private void markOrderPaid(OrderRecordEntity order, Long operatorId) {
+        order.setPayStatus(PAY_STATUS_PAID);
+        order.setUpdatedBy(operatorId);
+        orderRecordMapper.updateById(order);
+    }
+
+    private void markOrderSuccess(OrderRecordEntity order, Long operatorId) {
+        order.setOrderStatus(ORDER_STATUS_CONFIRMED);
+        order.setCodeStatus(CODE_STATUS_ISSUED);
+        order.setFailReason(null);
+        order.setUpdatedBy(operatorId);
+        orderRecordMapper.updateById(order);
+    }
+
+    private void markOrderFailed(OrderRecordEntity order, FailureReason reason, Long operatorId, String codeStatus) {
+        order.setOrderStatus(ORDER_STATUS_FAILED);
+        if (codeStatus != null && !codeStatus.isBlank()) {
+            order.setCodeStatus(codeStatus);
+        }
+        order.setFailReason(reason.storedValue());
+        order.setUpdatedBy(operatorId);
+        orderRecordMapper.updateById(order);
+    }
+
+    private boolean closeWaitPayOrder(OrderRecordEntity order, FailureReason reason, Long operatorId) {
+        return orderRecordMapper.closeWaitPayOrder(order.getId(), reason.storedValue(), operatorId) == 1;
+    }
+
+    private void compensateAndWriteFailure(
+            OrderCreatePayload payload,
+            OrderRecordEntity order,
+            FailureReason reason,
+            ActivityProductEntity activity
+    ) {
+        compensateRedisOnly(payload.activityId(), payload.userId());
+        writeFailure(payload.activityId(), payload.userId(), order, reason, activity);
+    }
+
+    private void compensate(OrderCreatePayload payload) {
+        compensate(payload.activityId(), payload.userId());
+    }
+
+    private void compensate(Long activityId, Long userId) {
+        activityProductMapper.increaseAvailableStock(activityId, userId);
+        compensateRedisOnly(activityId, userId);
+    }
+
+    private void compensateRedisOnly(Long activityId, Long userId) {
+        ValueOperations<String, String> valueOperations = stringRedisTemplate.opsForValue();
+        valueOperations.increment(RedisKeys.seckillStock(activityId));
+        Long remaining = valueOperations.decrement(RedisKeys.seckillLimit(activityId, userId));
+        if (remaining != null && remaining < 0) {
+            valueOperations.increment(RedisKeys.seckillLimit(activityId, userId));
+        }
+    }
+
+    private boolean reservePersistedStock(Long activityId, Long userId) {
+        return activityProductMapper.decreaseAvailableStock(activityId, userId) == 1;
+    }
+
+    private void writeSuccess(
+            Long activityId,
+            Long userId,
+            OrderRecordEntity order,
+            String code,
+            ActivityProductEntity activity
+    ) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "SUCCESS");
+        result.put("orderNo", order == null ? "" : order.getOrderNo());
+        result.put("message", "抢购成功");
+        result.put("code", code == null ? "" : code);
+        result.put("updatedAt", LocalDateTime.now(clock).toString());
+        writeResult(activityId, userId, result, activity);
+    }
+
+    private void writePendingPayment(Long activityId, Long userId, OrderRecordEntity order, ActivityProductEntity activity) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "PENDING_PAYMENT");
+        result.put("orderNo", order == null ? "" : order.getOrderNo());
+        result.put("message", "待支付");
+        result.put("code", "");
+        result.put("updatedAt", LocalDateTime.now(clock).toString());
+        writeResult(activityId, userId, result, activity);
+    }
+
+    private void writeFailure(
+            Long activityId,
+            Long userId,
+            OrderRecordEntity order,
+            FailureReason reason,
+            ActivityProductEntity activity
+    ) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "FAIL");
+        result.put("orderNo", order == null ? "" : order.getOrderNo());
+        result.put("message", reason.userMessage());
+        result.put("code", "");
+        result.put("updatedAt", LocalDateTime.now(clock).toString());
+        writeResult(activityId, userId, result, activity);
+    }
+
+    private void writeResult(Long activityId, Long userId, Map<String, Object> result, ActivityProductEntity activity) {
+        String key = RedisKeys.seckillResult(activityId, userId);
+        stringRedisTemplate.opsForHash().putAll(key, result);
+        stringRedisTemplate.expire(key, ttl(activity == null ? null : activity.getEndTime()));
+    }
+
+    private Duration ttl(LocalDateTime endTime) {
+        if (endTime == null) {
+            return Duration.ofHours(1);
+        }
+        Duration ttl = Duration.between(LocalDateTime.now(clock), endTime.plusHours(24));
+        if (ttl.isNegative() || ttl.isZero()) {
+            return Duration.ofHours(1);
+        }
+        return ttl;
+    }
+
+    private boolean isSuccess(OrderRecordEntity order) {
+        return ORDER_STATUS_CONFIRMED.equals(order.getOrderStatus()) && CODE_STATUS_ISSUED.equals(order.getCodeStatus());
+    }
+
+    private boolean isFailed(OrderRecordEntity order) {
+        return ORDER_STATUS_FAILED.equals(order.getOrderStatus());
+    }
+
+    private boolean isClosed(OrderRecordEntity order) {
+        return ORDER_STATUS_CLOSED.equals(order.getOrderStatus()) || PAY_STATUS_CLOSED.equals(order.getPayStatus());
+    }
+
+    private String assignedCodeValue(OrderRecordEntity order) {
+        RedeemCodeEntity redeemCode = redeemCodeMapper.findByAssignedOrderId(order.getId());
+        return redeemCode == null ? null : redeemCode.getCode();
+    }
+
+    private static class BusinessFailureException extends RuntimeException {
+
+        private final FailureReason reason;
+
+        private BusinessFailureException(FailureReason reason) {
+            this.reason = reason;
+        }
+
+        private FailureReason reason() {
+            return reason;
+        }
+    }
+
+    public record OrderDetailView(
+            String orderNo,
+            Long activityId,
+            Long userId,
+            String orderStatus,
+            String payStatus,
+            String codeStatus,
+            BigDecimal priceAmount,
+            String failReason,
+            String code,
+            LocalDateTime updatedAt
+    ) {
+    }
+
+    enum FailureReason {
+        ACTIVITY_NOT_FOUND("ACTIVITY_NOT_FOUND", "活动不存在"),
+        IMPORTED_CODE_UNAVAILABLE("IMPORTED_CODE_UNAVAILABLE", "兑换码不足"),
+        SYSTEM_CODE_GENERATION_FAILED("SYSTEM_CODE_GENERATION_FAILED", "系统发码失败"),
+        ORDER_CREATE_FAILED("ORDER_CREATE_FAILED", "订单处理失败"),
+        PAYMENT_TIMEOUT("PAYMENT_TIMEOUT", "支付超时，订单已关闭");
+
+        private final String storedValue;
+        private final String userMessage;
+
+        FailureReason(String storedValue, String userMessage) {
+            this.storedValue = storedValue;
+            this.userMessage = userMessage;
+        }
+
+        String storedValue() {
+            return storedValue;
+        }
+
+        String userMessage() {
+            return userMessage;
+        }
+
+        static FailureReason fromStoredValue(String value) {
+            if (value == null || value.isBlank()) {
+                return ORDER_CREATE_FAILED;
+            }
+            for (FailureReason reason : values()) {
+                if (reason.storedValue.equalsIgnoreCase(value)) {
+                    return reason;
+                }
+            }
+            return ORDER_CREATE_FAILED;
+        }
+    }
+}

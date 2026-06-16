@@ -31,7 +31,7 @@ function handleLogout() {
       <div class="public-shell__actions">
         <RouterLink v-if="authStore.isAuthenticated" class="public-shell__cta" :to="dashboardTarget">
           <LayoutDashboard :size="16" />
-          返回工作台
+          控制台
         </RouterLink>
         <button
           v-if="authStore.isAuthenticated"

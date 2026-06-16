@@ -10,7 +10,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/public/home',
+      redirect: '/home',
     },
     {
       path: '/login',
@@ -23,21 +23,27 @@ const router = createRouter({
       meta: { title: '用户注册' },
     },
     {
-      path: '/public',
+      path: '/home',
       component: PublicLayout,
       children: [
         {
-          path: 'home',
+          path: '',
           component: () => import('@/views/public/PublicHomeView.vue'),
           meta: { title: '平台首页' },
         },
+      ],
+    },
+    {
+      path: '/activities',
+      component: PublicLayout,
+      children: [
         {
-          path: 'activities',
+          path: '',
           component: () => import('@/views/public/PublicActivitiesView.vue'),
           meta: { title: '活动展示' },
         },
         {
-          path: 'activities/:id',
+          path: ':id',
           component: () => import('@/views/public/PublicActivityDetailView.vue'),
           meta: { title: '活动详情' },
         },

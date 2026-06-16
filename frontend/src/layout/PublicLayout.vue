@@ -23,8 +23,8 @@ function handleLogout() {
     <header class="public-shell__header">
       <AppBrand />
       <nav class="public-shell__nav">
-        <RouterLink to="/public/home">首页</RouterLink>
-        <RouterLink to="/public/activities">活动展示</RouterLink>
+        <RouterLink to="/home">首页</RouterLink>
+        <RouterLink to="/activities">活动展示</RouterLink>
         <RouterLink v-if="!authStore.isAuthenticated" to="/register">用户注册</RouterLink>
         <RouterLink v-if="!authStore.isAuthenticated" to="/login">后台登录</RouterLink>
       </nav>

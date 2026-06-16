@@ -48,7 +48,7 @@ onMounted(async () => {
         :key="activity.id"
         class="public-card"
         :class="`public-card--${toneMap[index % toneMap.length]}`"
-        :to="`/public/activities/${activity.id}`"
+        :to="`/activities/${activity.id}`"
       >
         <div class="public-card__head">
           <div>

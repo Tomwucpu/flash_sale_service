@@ -36,7 +36,7 @@ export function evaluateRouteGuard(input: RouteGuardInput): RouteGuardDecision {
   if (isAdminRoute && !isAdminLike) {
     return {
       allow: false,
-      redirectTo: '/public/home',
+      redirectTo: '/home',
     }
   }
 

@@ -11,7 +11,7 @@ import { ArrowRight, BadgeCheck, LayoutPanelTop, Sparkles } from 'lucide-vue-nex
         <h1 class="poster-title">高并发秒杀平台</h1>
         <p class="poster-copy">体验极速秒杀，抢购热门商品。查看最新秒杀活动，或者进入管理后台进行配置配置与监控。</p>
         <div class="public-hero__actions">
-          <RouterLink class="flat-button" to="/public/activities">
+          <RouterLink class="flat-button" to="/activities">
             探索秒杀活动
             <ArrowRight :size="18" />
           </RouterLink>

@@ -38,7 +38,7 @@ async function loadOrders() {
 }
 
 function viewActivity(activityId: number) {
-  router.push(`/public/activities/${activityId}`)
+  router.push(`/activities/${activityId}`)
 }
 
 onMounted(loadOrders)

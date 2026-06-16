@@ -69,7 +69,7 @@ function handleLogout() {
             <span>{{ userLabel }}</span>
             <small>{{ authStore.currentUser?.role ?? '游客' }}</small>
           </div>
-          <RouterLink class="flat-button flat-button--ghost" to="/public/home">
+          <RouterLink class="flat-button flat-button--ghost" to="/home">
             <House :size="16" />
             首页
           </RouterLink>

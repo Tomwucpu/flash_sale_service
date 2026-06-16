@@ -95,7 +95,7 @@ function stopPolling() {
 }
 
 function goToPublicActivities() {
-  router.push('/public/activities')
+  router.push('/activities')
 }
 
 function schedulePolling() {
@@ -151,7 +151,7 @@ async function handleAttemptSeckill() {
     await router.push({
       path: '/login',
       query: {
-        redirect: `/public/activities/${activityId.value}`,
+        redirect: `/activities/${activityId.value}`,
       },
     })
     return

@@ -5,84 +5,25 @@ import { ElMessage } from 'element-plus'
 import { ExternalLink, RefreshCw } from 'lucide-vue-next'
 import { orderApi } from '@/api/order'
 import { ApiClientError } from '@/api/request'
-import StatusBadge from '@/components/StatusBadge.vue'
+import OrderStatusBadges from '@/components/OrderStatusBadges.vue'
 import type { OrderDetail } from '@/types'
 import { formatDisplayDateTime } from '@/utils/date'
-
-type StatusTone = 'blue' | 'green' | 'amber' | 'slate'
+import { formatOrderAmount, summarizeActivityOrders } from '@/utils/order'
 
 const router = useRouter()
 const loading = ref(false)
 const orders = ref<OrderDetail[]>([])
 
 const hasOrders = computed(() => orders.value.length > 0)
-const summary = computed(() => ({
-  total: orders.value.length,
-  success: orders.value.filter((item) => item.orderStatus === 'CONFIRMED').length,
-  waitingPayment: orders.value.filter((item) => item.payStatus === 'WAIT_PAY').length,
-}))
-
-const orderStatusLabels: Record<string, string> = {
-  INIT: '处理中',
-  CONFIRMED: '已完成',
-  CLOSED: '已关闭',
-  FAILED: '失败',
-}
-
-const payStatusLabels: Record<string, string> = {
-  NO_NEED: '免支付',
-  WAIT_PAY: '待支付',
-  PAID: '已支付',
-  CLOSED: '已关闭',
-}
-
-const codeStatusLabels: Record<string, string> = {
-  PENDING: '待发码',
-  ISSUED: '已发码',
-  FAILED: '发码失败',
-}
-
-function labelOf(labels: Record<string, string>, value: string) {
-  return labels[value] ?? value
-}
-
-function orderStatusTone(value: string): StatusTone {
-  if (value === 'CONFIRMED') {
-    return 'green'
+const summary = computed(() => {
+  const items = orders.value
+  const result = summarizeActivityOrders(items)
+  return {
+    total: result.total,
+    success: result.confirmed,
+    waitingPayment: result.waitingPayment,
   }
-  if (value === 'INIT') {
-    return 'blue'
-  }
-  if (value === 'FAILED') {
-    return 'amber'
-  }
-  return 'slate'
-}
-
-function payStatusTone(value: string): StatusTone {
-  if (value === 'PAID' || value === 'NO_NEED') {
-    return 'green'
-  }
-  if (value === 'WAIT_PAY') {
-    return 'amber'
-  }
-  return 'slate'
-}
-
-function codeStatusTone(value: string): StatusTone {
-  if (value === 'ISSUED') {
-    return 'green'
-  }
-  if (value === 'PENDING') {
-    return 'blue'
-  }
-  return 'amber'
-}
-
-function formatAmount(value: number) {
-  const amount = Number(value)
-  return amount > 0 ? `￥${amount.toFixed(2)}` : '免支付'
-}
+})
 
 async function loadOrders() {
   loading.value = true
@@ -149,16 +90,12 @@ onMounted(loadOrders)
             </el-table-column>
             <el-table-column prop="priceAmount" label="金额" width="120" sortable>
               <template #default="{ row }">
-                <strong>{{ formatAmount(row.priceAmount) }}</strong>
+                <strong>{{ formatOrderAmount(row.priceAmount) }}</strong>
               </template>
             </el-table-column>
             <el-table-column label="状态" min-width="250">
               <template #default="{ row }">
-                <div class="badge-stack">
-                  <StatusBadge :label="labelOf(orderStatusLabels, row.orderStatus)" :tone="orderStatusTone(row.orderStatus)" />
-                  <StatusBadge :label="labelOf(payStatusLabels, row.payStatus)" :tone="payStatusTone(row.payStatus)" />
-                  <StatusBadge :label="labelOf(codeStatusLabels, row.codeStatus)" :tone="codeStatusTone(row.codeStatus)" />
-                </div>
+                <OrderStatusBadges :order-status="row.orderStatus" :pay-status="row.payStatus" :code-status="row.codeStatus" />
               </template>
             </el-table-column>
             <el-table-column label="兑换码" min-width="190">
@@ -233,12 +170,6 @@ onMounted(loadOrders)
 .cell-stack span {
   color: var(--fg-soft);
   font-size: 0.85rem;
-}
-
-.badge-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .code-value {

@@ -2,67 +2,36 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleAlert, Megaphone, PenSquare, ReceiptText, SquareArrowOutUpRight, Upload } from 'lucide-vue-next'
+import { Megaphone, PenSquare, ReceiptText, SquareArrowOutUpRight } from 'lucide-vue-next'
 import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
-import StatusBadge from '@/components/StatusBadge.vue'
+import ActivityStatusBadges from '@/components/ActivityStatusBadges.vue'
+import ImportBatchPanel from '@/components/ActivityDetail/ImportBatchPanel.vue'
+import ImportBatchDialog from '@/components/ActivityDetail/ImportBatchDialog.vue'
 import {
   getCodeSourceModeLabel,
-  getImportFailureReasonLabel,
-  getPhaseLabel,
   getPublishModeLabel,
-  getPublishStatusLabel,
   isEditableActivity,
   shouldShowCodeImportPanel,
 } from '@/utils/activity'
 import { formatDisplayDateTime } from '@/utils/date'
-import type { ActivityDetail, RedeemCodeImportBatchDetail, RedeemCodeImportBatchSummary } from '@/types'
+import type { ActivityDetail } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
-const importSubmitting = ref(false)
-const importBatchesLoading = ref(false)
-const batchDetailLoading = ref(false)
 const detail = ref<ActivityDetail | null>(null)
-const importBatches = ref<RedeemCodeImportBatchSummary[]>([])
-const latestImportResult = ref<RedeemCodeImportBatchDetail | null>(null)
-const selectedBatchDetail = ref<RedeemCodeImportBatchDetail | null>(null)
-const selectedImportFile = ref<File | null>(null)
 const batchDialogVisible = ref(false)
+const selectedBatchNo = ref<string | null>(null)
 
 const activityId = computed(() => Number(route.params.id))
-const canImportCodes = computed(() => detail.value?.publishStatus === 'UNPUBLISHED')
 const isAdvancePublish = computed(() => detail.value?.publishMode === 'SCHEDULED')
 const publishActionLabel = computed(() => (isAdvancePublish.value ? '提前发布活动' : '立即发布活动'))
-
-async function loadImportBatches() {
-  if (!detail.value || !shouldShowCodeImportPanel(detail.value)) {
-    importBatches.value = []
-    return
-  }
-
-  importBatchesLoading.value = true
-  try {
-    importBatches.value = await activityApi.listImportBatches(activityId.value)
-  } catch (error) {
-    const message = error instanceof ApiClientError ? error.message : '导入批次加载失败'
-    ElMessage.error(message)
-  } finally {
-    importBatchesLoading.value = false
-  }
-}
 
 async function loadDetail() {
   loading.value = true
   try {
     detail.value = await activityApi.detail(activityId.value)
-    if (shouldShowCodeImportPanel(detail.value)) {
-      await loadImportBatches()
-    } else {
-      importBatches.value = []
-      latestImportResult.value = null
-    }
   } catch (error) {
     const message = error instanceof ApiClientError ? error.message : '活动详情加载失败'
     ElMessage.error(message)
@@ -97,44 +66,9 @@ async function handleOffline() {
   await loadDetail()
 }
 
-function handleFileChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  selectedImportFile.value = target.files?.[0] ?? null
-}
-
-async function handleImportCodes() {
-  if (!selectedImportFile.value) {
-    ElMessage.error('请先选择 csv 或 xlsx 文件')
-    return
-  }
-
-  importSubmitting.value = true
-  try {
-    latestImportResult.value = await activityApi.importCodes(activityId.value, selectedImportFile.value)
-    ElMessage.success('兑换码导入完成')
-    selectedImportFile.value = null
-    await loadImportBatches()
-    detail.value = await activityApi.detail(activityId.value)
-  } catch (error) {
-    const message = error instanceof ApiClientError ? error.message : '兑换码导入失败'
-    ElMessage.error(message)
-  } finally {
-    importSubmitting.value = false
-  }
-}
-
-async function handleViewBatchDetail(batchNo: string) {
-  batchDetailLoading.value = true
+function handleViewBatchDetail(batchNo: string) {
+  selectedBatchNo.value = batchNo
   batchDialogVisible.value = true
-  try {
-    selectedBatchDetail.value = await activityApi.importBatchDetail(activityId.value, batchNo)
-  } catch (error) {
-    batchDialogVisible.value = false
-    const message = error instanceof ApiClientError ? error.message : '批次详情加载失败'
-    ElMessage.error(message)
-  } finally {
-    batchDetailLoading.value = false
-  }
 }
 
 onMounted(loadDetail)
@@ -146,16 +80,7 @@ onMounted(loadDetail)
       <div class="eyebrow">Activity Detail</div>
       <h1 class="poster-title">{{ detail.title }}</h1>
       <p class="poster-copy">{{ detail.description || '当前活动没有填写补充描述。' }}</p>
-      <div class="badge-stack">
-        <StatusBadge
-          :label="getPublishStatusLabel(detail.publishStatus)"
-          :tone="detail.publishStatus === 'PUBLISHED' ? 'green' : detail.publishStatus === 'UNPUBLISHED' ? 'amber' : 'slate'"
-        />
-        <StatusBadge
-          :label="getPhaseLabel(detail.phase)"
-          :tone="detail.phase === 'ONGOING' ? 'blue' : detail.phase === 'PREVIEW' ? 'amber' : 'slate'"
-        />
-      </div>
+      <ActivityStatusBadges :publish-status="detail.publishStatus" :phase="detail.phase" />
     </section>
 
     <section class="detail-grid" v-if="detail">
@@ -184,85 +109,13 @@ onMounted(loadDetail)
       </article>
     </section>
 
-    <section class="flat-panel flat-panel--blue" v-if="detail && shouldShowCodeImportPanel(detail)">
-      <div class="import-panel-header">
-        <div>
-          <div class="eyebrow">Redeem Codes</div>
-          <h2>兑换码导入与批次记录</h2>
-        </div>
-        <div class="import-panel-badges">
-          <StatusBadge :label="canImportCodes ? '当前可导入' : '当前不可导入'" :tone="canImportCodes ? 'green' : 'slate'" />
-          <StatusBadge :label="`历史批次 ${importBatches.length}`" tone="blue" />
-        </div>
-      </div>
-
-      <div class="import-toolbar">
-        <label class="import-file-picker">
-          <Upload :size="18" />
-          <span>{{ selectedImportFile ? selectedImportFile.name : '选择兑换码文件' }}</span>
-          <input accept=".csv,.xlsx" class="visually-hidden" type="file" @change="handleFileChange" />
-        </label>
-        <button class="flat-button" type="button" :disabled="!canImportCodes || importSubmitting" @click="handleImportCodes">
-          <Upload :size="18" />
-          {{ importSubmitting ? '导入中...' : '导入兑换码' }}
-        </button>
-      </div>
-
-      <p class="import-tip" v-if="!canImportCodes">
-        当前状态：{{ getPublishStatusLabel(detail.publishStatus) }}。仅未发布活动可导入兑换码。
-      </p>
-
-      <article class="flat-panel latest-import-panel" v-if="latestImportResult">
-        <div class="batch-card-header">
-          <div>
-            <div class="eyebrow">Latest Batch</div>
-            <strong>{{ latestImportResult.fileName }}</strong> <span class="text-muted ml-2">{{ latestImportResult.batchNo }}</span>
-          </div>
-          <div class="batch-stats-inline">
-            <span>总数: <strong>{{ latestImportResult.totalCount }}</strong></span>
-            <span>成功: <strong style="color: var(--color-green, #16a34a)">{{ latestImportResult.successCount }}</strong></span>
-            <span>失败: <strong style="color: var(--color-red, #dc2626)">{{ latestImportResult.failedCount }}</strong></span>
-          </div>
-        </div>
-        <div class="failure-list" v-if="latestImportResult.failures.length > 0">
-          <div class="failure-item" v-for="failure in latestImportResult.failures" :key="`${latestImportResult.batchNo}-${failure.lineNumber}`">
-            <div class="failure-item__meta">
-              <span class="text-muted">第 {{ failure.lineNumber }} 行：</span>
-              <strong>{{ failure.rawCode || '空值' }}</strong>
-            </div>
-            <span class="failure-reason">{{ getImportFailureReasonLabel(failure.reason) }}</span>
-          </div>
-        </div>
-      </article>
-
-      <div class="batch-list" v-loading="importBatchesLoading">
-        <div class="batch-list-header">
-          <div class="eyebrow">Batch History</div>
-        </div>
-
-        <div v-if="importBatches.length > 0" class="batch-list-body">
-          <article class="batch-card" v-for="batch in importBatches" :key="batch.batchNo">
-            <div class="batch-card-header">
-              <div class="batch-title">
-                <strong>{{ batch.fileName }}</strong>
-                <span class="text-muted">{{ batch.batchNo }}</span>
-              </div>
-              <div class="batch-stats-inline">
-                <span>总数: <strong>{{ batch.totalCount }}</strong></span>
-                <span>成功: <strong style="color: var(--color-green, #16a34a)">{{ batch.successCount }}</strong></span>
-                <span>失败: <strong style="color: var(--color-red, #dc2626)">{{ batch.failedCount }}</strong></span>
-              </div>
-              <button class="text-button" type="button" @click="handleViewBatchDetail(batch.batchNo)">
-                查看明细
-              </button>
-            </div>
-          </article>
-        </div>
-        <div v-else class="empty-state compact-empty-state">
-          <strong>还没有导入记录</strong>
-        </div>
-      </div>
-    </section>
+    <ImportBatchPanel
+      v-if="detail && shouldShowCodeImportPanel(detail)"
+      :activity-id="activityId"
+      :detail="detail"
+      @detail-refreshed="detail = $event"
+      @view-batch-detail="handleViewBatchDetail"
+    />
 
     <section class="flat-panel flat-panel--soft" v-else-if="detail">
       <div class="eyebrow">Redeem Codes</div>
@@ -288,34 +141,11 @@ onMounted(loadDetail)
       </button>
     </section>
 
-    <el-dialog v-model="batchDialogVisible" title="导入批次详情" width="720px">
-      <div v-loading="batchDetailLoading" v-if="selectedBatchDetail" class="dialog-stack">
-        <div class="meta-list">
-          <div class="meta-row"><span>批次号</span><strong>{{ selectedBatchDetail.batchNo }}</strong></div>
-          <div class="meta-row"><span>文件名</span><strong>{{ selectedBatchDetail.fileName }}</strong></div>
-          <div class="meta-row"><span>总行数</span><strong>{{ selectedBatchDetail.totalCount }}</strong></div>
-          <div class="meta-row"><span>成功导入</span><strong>{{ selectedBatchDetail.successCount }}</strong></div>
-          <div class="meta-row"><span>失败行</span><strong>{{ selectedBatchDetail.failedCount }}</strong></div>
-        </div>
-
-        <div class="failure-list" v-if="selectedBatchDetail.failures.length > 0">
-          <div class="failure-item" v-for="failure in selectedBatchDetail.failures" :key="`${selectedBatchDetail.batchNo}-${failure.lineNumber}`">
-            <div class="failure-item__meta">
-              <span>第 {{ failure.lineNumber }} 行</span>
-              <strong>{{ failure.rawCode || '空值' }}</strong>
-            </div>
-            <span>{{ getImportFailureReasonLabel(failure.reason) }}</span>
-          </div>
-        </div>
-        <div v-else class="empty-state compact-empty-state">
-          <strong>这个批次没有失败记录</strong>
-        </div>
-      </div>
-      <div v-else class="dialog-placeholder">
-        <CircleAlert :size="18" />
-        <span>请选择一个导入批次查看详情。</span>
-      </div>
-    </el-dialog>
+    <ImportBatchDialog
+      v-model:visible="batchDialogVisible"
+      :activity-id="activityId"
+      :batch-no="selectedBatchNo"
+    />
   </div>
 </template>
 
@@ -326,203 +156,19 @@ onMounted(loadDetail)
   gap: 1rem;
 }
 
-.badge-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 .detail-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
 }
 
-.import-panel-header,
-.batch-card-header,
-.batch-list-header,
-.failure-item,
-.failure-item__meta,
-.import-toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.import-panel-header,
-.batch-list-header {
-  align-items: center;
-}
-
-.import-panel-header h2,
 .import-static-title {
   margin: 0.25rem 0 0;
   font-size: 1.5rem;
 }
 
-.import-panel-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.import-toolbar {
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 1.5rem;
-}
-
-.import-file-picker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 56px;
-  padding: 0.95rem 1.2rem;
-  border: 2px dashed var(--fg);
-  background: white;
-  font-weight: 700;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.import-tip {
-  margin-top: 1rem;
-}
-
-.import-tip,
-.batch-list-header span,
-.batch-card-header span,
-.dialog-placeholder {
-  color: var(--fg-soft);
-}
-
-.latest-import-panel {
-  margin-top: 1.5rem;
-}
-
-.latest-import-panel,
-.batch-list-body,
-.dialog-stack,
-.failure-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.batch-list {
-  display: grid;
-  gap: 1.25rem;
-  margin-top: 1.5rem;
-}
-
-.batch-card {
-  padding: 1.25rem 1.5rem;
-  border: 2px solid rgba(17, 24, 39, 0.12);
-  background: white;
-  transition: border-color 0.2s ease;
-}
-.batch-card:hover {
-  border-color: var(--fg);
-}
-
-.batch-card-header {
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-
-.batch-title {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex: 1;
-  min-width: 250px;
-}
-
-.text-muted {
-  color: var(--fg-soft);
-  font-size: 0.95rem;
-}
-
-.ml-2 {
-  margin-left: 0.75rem;
-}
-
-.batch-stats-inline {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-  font-size: 1.05rem;
-}
-
-.text-button {
-  background: none;
-  border: none;
-  padding: 0;
-  color: #2563eb;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  font-size: 1rem;
-}
-
-.text-button:hover {
-  color: #1d4ed8;
-}
-
-.failure-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.25rem;
-  border-left: 4px solid #ef4444;
-  background: rgba(254, 242, 242, 0.5);
-  font-size: 0.95rem;
-  margin-bottom: 0.5rem;
-}
-
-.failure-item:last-child {
-  margin-bottom: 0;
-}
-
-.failure-item__meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.failure-reason {
-  color: #dc2626;
-  font-weight: 500;
-}
-
-.compact-empty-state {
-  padding: 1rem;
-}
-
-.dialog-placeholder {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 @media (max-width: 960px) {
-  .detail-grid,
-  .import-panel-header,
-  .batch-card-header,
-  .batch-list-header,
-  .import-toolbar,
-  .failure-item {
+  .detail-grid {
     grid-template-columns: 1fr;
     display: grid;
   }

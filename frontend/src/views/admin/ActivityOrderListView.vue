@@ -7,21 +7,16 @@ import { activityApi } from '@/api/activity'
 import { exportApi } from '@/api/export'
 import { orderApi } from '@/api/order'
 import { ApiClientError } from '@/api/request'
-import StatusBadge from '@/components/StatusBadge.vue'
+import OrderStatusBadges from '@/components/OrderStatusBadges.vue'
 import type { ActivityDetail, OrderDetail } from '@/types'
 import { formatDisplayDateTime } from '@/utils/date'
+import { downloadBlob } from '@/utils/download'
 import {
   buildSoldCodeExportPayload,
   canExportSoldCodes,
 } from '@/utils/export-task'
 import {
-  codeStatusTone,
   formatOrderAmount,
-  getCodeStatusLabel,
-  getOrderStatusLabel,
-  getPayStatusLabel,
-  orderStatusTone,
-  payStatusTone,
   summarizeActivityOrders,
 } from '@/utils/order'
 
@@ -52,18 +47,6 @@ async function loadOrders() {
   } finally {
     loading.value = false
   }
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const objectUrl = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-
-  link.href = objectUrl
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(objectUrl)
 }
 
 async function handleExportSoldCodes() {
@@ -167,11 +150,7 @@ onMounted(loadOrders)
             </el-table-column>
             <el-table-column label="状态" min-width="280">
               <template #default="{ row }">
-                <div class="badge-stack">
-                  <StatusBadge :label="getOrderStatusLabel(row.orderStatus)" :tone="orderStatusTone(row.orderStatus)" />
-                  <StatusBadge :label="getPayStatusLabel(row.payStatus)" :tone="payStatusTone(row.payStatus)" />
-                  <StatusBadge :label="getCodeStatusLabel(row.codeStatus)" :tone="codeStatusTone(row.codeStatus)" />
-                </div>
+                <OrderStatusBadges :order-status="row.orderStatus" :pay-status="row.payStatus" :code-status="row.codeStatus" />
               </template>
             </el-table-column>
             <el-table-column label="兑换码" min-width="220">
@@ -248,12 +227,6 @@ onMounted(loadOrders)
 .cell-stack span {
   color: var(--fg-soft);
   font-size: 0.85rem;
-}
-
-.badge-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .spin-icon {

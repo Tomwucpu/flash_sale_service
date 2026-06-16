@@ -6,8 +6,9 @@ import { Eye, Megaphone, PenSquare, Plus, ReceiptText, SquareArrowOutUpRight, Tr
 import { activityApi } from '@/api/activity'
 import { ApiClientError } from '@/api/request'
 import StatusBadge from '@/components/StatusBadge.vue'
+import ActivityStatusBadges from '@/components/ActivityStatusBadges.vue'
 import { formatDisplayDateTime } from '@/utils/date'
-import { getPhaseLabel, getPublishModeLabel, getPublishStatusLabel, isDeletableActivity, isEditableActivity } from '@/utils/activity'
+import { getPublishModeLabel, isDeletableActivity, isEditableActivity } from '@/utils/activity'
 import type { ActivitySummary } from '@/types'
 
 const router = useRouter()
@@ -132,16 +133,7 @@ onMounted(loadActivities)
           </el-table-column>
           <el-table-column label="状态" width="220">
             <template #default="{ row }">
-              <div class="badge-stack">
-                <StatusBadge
-                  :label="getPublishStatusLabel(row.publishStatus)"
-                  :tone="row.publishStatus === 'PUBLISHED' ? 'green' : row.publishStatus === 'OFFLINE' ? 'slate' : 'amber'"
-                />
-                <StatusBadge
-                  :label="getPhaseLabel(row.phase)"
-                  :tone="row.phase === 'ONGOING' ? 'blue' : row.phase === 'PREVIEW' ? 'amber' : 'slate'"
-                />
-              </div>
+              <ActivityStatusBadges :publish-status="row.publishStatus" :phase="row.phase" />
             </template>
           </el-table-column>
           <el-table-column prop="startTime" label="时间窗" min-width="210" sortable>
@@ -239,12 +231,6 @@ onMounted(loadActivities)
   color: var(--fg-soft);
   font-size: 0.8rem;
   line-height: 1.4;
-}
-
-.badge-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
 }
 
 .action-cell {

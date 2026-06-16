@@ -2,24 +2,17 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, RefreshCw } from 'lucide-vue-next'
+import { ArrowLeft } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
 import { seckillApi } from '@/api/seckill'
 import { ApiClientError } from '@/api/request'
-import StatusBadge from '@/components/StatusBadge.vue'
+import ActivityStatusBadges from '@/components/ActivityStatusBadges.vue'
+import SeckillPanel from '@/components/PublicActivityDetail/SeckillPanel.vue'
+import SeckillResultTable from '@/components/PublicActivityDetail/SeckillResultTable.vue'
+import OrderPanel from '@/components/PublicActivityDetail/OrderPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDisplayDateTime } from '@/utils/date'
-import { getCodeSourceModeLabel, getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
-import {
-  codeStatusTone,
-  formatOrderAmount,
-  getCodeStatusLabel,
-  getOrderStatusLabel,
-  getPayStatusLabel,
-  orderStatusTone,
-  payStatusTone,
-  summarizeActivityOrders,
-} from '@/utils/order'
+import { getCodeSourceModeLabel } from '@/utils/activity'
 import type { ActivityDetail, OrderDetail, PaymentOrder, SeckillResult } from '@/types'
 
 const route = useRoute()
@@ -44,9 +37,6 @@ let pollingTimer: ReturnType<typeof setTimeout> | null = null
 const activityId = computed(() => Number(route.params.id))
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const currentOrderNo = computed(() => seckillResult.value?.orderNo ?? '')
-const seckillResultRows = computed(() => (seckillResult.value ? [seckillResult.value] : []))
-const hasActivityOrders = computed(() => activityOrders.value.length > 0)
-const activityOrderSummary = computed(() => summarizeActivityOrders(activityOrders.value))
 const showPaymentPanel = computed(
   () =>
     Boolean(detail.value?.needPayment) &&
@@ -92,30 +82,6 @@ const attemptBlockedReason = computed(() => {
   }
   return ''
 })
-
-function getSeckillStatusLabel(status: string) {
-  const map: Record<string, string> = {
-    INIT: '未抢购',
-    PROCESSING: '处理中',
-    PENDING_PAYMENT: '待支付',
-    SUCCESS: '抢购成功',
-    FAIL: '抢购失败',
-  }
-  return map[status] ?? status
-}
-
-function getSeckillStatusTone(status: string): 'blue' | 'green' | 'amber' | 'slate' {
-  if (status === 'SUCCESS') {
-    return 'green'
-  }
-  if (status === 'PROCESSING') {
-    return 'blue'
-  }
-  if (status === 'PENDING_PAYMENT') {
-    return 'amber'
-  }
-  return 'slate'
-}
 
 function shouldPoll(status: string | undefined) {
   return status === 'PROCESSING' || status === 'PENDING_PAYMENT'
@@ -357,45 +323,20 @@ onBeforeUnmount(() => {
         <div class="eyebrow">Public Detail</div>
         <h1 class="poster-title">{{ detail.title }}</h1>
         <p class="poster-copy">{{ detail.description }}</p>
-        <div class="detail-hero__badges">
-          <StatusBadge
-            :label="getPublishStatusLabel(detail.publishStatus)"
-            :tone="detail.publishStatus === 'PUBLISHED' ? 'green' : detail.publishStatus === 'UNPUBLISHED' ? 'amber' : 'slate'"
-          />
-          <StatusBadge
-            :label="getPhaseLabel(detail.phase)"
-            :tone="detail.phase === 'ONGOING' ? 'blue' : detail.phase === 'PREVIEW' ? 'amber' : 'slate'"
-          />
-        </div>
-        <div class="detail-hero__seckill" v-if="detail.phase === 'ONGOING'">
-          <button class="flat-button detail-hero__seckill-button" type="button" :disabled="!canAttemptSeckill" @click="handleAttemptSeckill">
-            {{ seckillButtonLabel }}
-          </button>
-
-          <div class="detail-hero__payment" v-if="showPaymentPanel">
-            <div class="payment-panel__header">
-              <div>
-                <div class="eyebrow">Payment</div>
-                <h3 class="payment-panel__title">待支付订单处理</h3>
-              </div>
-              <StatusBadge label="待支付" tone="amber" />
-            </div>
-            <div class="payment-panel__actions">
-              <button class="flat-button flat-button--secondary" type="button" :disabled="paymentCreating" @click="handleCreatePayment">
-                {{ paymentCreating ? '创建中...' : '创建模拟支付单' }}
-              </button>
-              <button class="flat-button" type="button" :disabled="paymentCallbackSubmitting || !paymentOrder?.transactionNo" @click="handlePaymentCallback">
-                {{ paymentCallbackSubmitting ? '回调中...' : '提交模拟支付回调' }}
-              </button>
-            </div>
-            <div class="meta-list" v-if="paymentOrder">
-              <div class="meta-row"><span>支付单订单号</span><strong>{{ paymentOrder.orderNo }}</strong></div>
-              <div class="meta-row"><span>交易流水号</span><strong>{{ paymentOrder.transactionNo }}</strong></div>
-              <div class="meta-row"><span>支付金额</span><strong>{{ paymentOrder.payAmount }}</strong></div>
-              <div class="meta-row"><span>支付状态</span><strong>{{ paymentOrder.payStatus }}</strong></div>
-            </div>
-          </div>
-        </div>
+        <ActivityStatusBadges :publish-status="detail.publishStatus" :phase="detail.phase" />
+        <SeckillPanel
+          v-if="detail.phase === 'ONGOING'"
+          :can-attempt="canAttemptSeckill"
+          :button-label="seckillButtonLabel"
+          :attempting="seckillAttempting"
+          :show-payment="showPaymentPanel"
+          :payment-order="paymentOrder"
+          :payment-creating="paymentCreating"
+          :payment-callback-submitting="paymentCallbackSubmitting"
+          @attempt="handleAttemptSeckill"
+          @create-payment="handleCreatePayment"
+          @submit-callback="handlePaymentCallback"
+        />
       </div>
     </section>
 
@@ -420,114 +361,14 @@ onBeforeUnmount(() => {
       </article>
     </section>
 
-      <article class="flat-panel seckill-result" v-if="seckillResult">
-        <div class="seckill-result__header">
-          <div>
-            <div class="eyebrow">Result</div>
-            <h3 class="seckill-result__title">抢购结果</h3>
-          </div>
-        </div>
-        <div class="seckill-result-table-wrap">
-          <el-table class="seckill-result-table" :data="seckillResultRows" row-key="status">
-            <el-table-column label="状态" width="112">
-              <template #default="{ row }">
-                <StatusBadge :label="getSeckillStatusLabel(row.status)" :tone="getSeckillStatusTone(row.status)" />
-              </template>
-            </el-table-column>
-            <el-table-column label="状态说明" min-width="170" show-overflow-tooltip>
-              <template #default="{ row }">
-                <strong class="order-inline-cell">{{ row.message || '-' }}</strong>
-              </template>
-            </el-table-column>
-            <el-table-column label="订单号" min-width="210" show-overflow-tooltip>
-              <template #default="{ row }">
-                <strong class="order-no">{{ row.orderNo || '-' }}</strong>
-              </template>
-            </el-table-column>
-            <el-table-column label="兑换码" min-width="220" show-overflow-tooltip>
-              <template #default="{ row }">
-                <strong class="code-value">{{ row.code || '-' }}</strong>
-              </template>
-            </el-table-column>
-            <el-table-column label="更新时间" min-width="170">
-              <template #default="{ row }">
-                <span class="order-inline-cell">{{ row.updatedAt ? formatDisplayDateTime(row.updatedAt) : '-' }}</span>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </article>
+    <SeckillResultTable :seckill-result="seckillResult" />
 
-      <article class="flat-panel order-panel" v-if="isAuthenticated">
-        <div class="order-panel__header">
-          <div class="order-panel__heading">
-            <div class="eyebrow">Order</div>
-            <h3 class="order-panel__title">订单与兑换码列表</h3>
-            <div class="order-panel__summary" v-if="hasActivityOrders">
-              <span>共 {{ activityOrderSummary.total }} 单</span>
-              <span>{{ activityOrderSummary.issuedCodes }} 个已发码</span>
-              <span>{{ activityOrderSummary.waitingPayment }} 单待支付</span>
-            </div>
-          </div>
-          <div class="order-panel__actions">
-            <button class="flat-button flat-button--ghost" type="button" :disabled="orderQuerying" @click="handleQueryOrders()">
-              <RefreshCw :size="18" />
-              {{ orderQuerying ? '查询中...' : '刷新' }}
-            </button>
-          </div>
-        </div>
-
-        <div v-loading="orderQuerying" class="order-table-loading">
-          <div class="order-panel__empty" v-if="!hasActivityOrders">
-            当前活动暂无订单记录。
-          </div>
-
-          <div class="order-table-wrap" v-else>
-            <el-table class="order-table" :data="activityOrders" row-key="orderNo">
-              <el-table-column prop="orderNo" label="订单号" min-width="210" show-overflow-tooltip>
-                <template #default="{ row }">
-                  <strong class="order-no">{{ row.orderNo }}</strong>
-                </template>
-              </el-table-column>
-              <el-table-column label="金额" width="110">
-                <template #default="{ row }">
-                  <strong class="order-inline-cell">{{ formatOrderAmount(row.priceAmount) }}</strong>
-                </template>
-              </el-table-column>
-              <el-table-column label="订单" width="112">
-                <template #default="{ row }">
-                  <StatusBadge :label="getOrderStatusLabel(row.orderStatus)" :tone="orderStatusTone(row.orderStatus)" />
-                </template>
-              </el-table-column>
-              <el-table-column label="支付" width="112">
-                <template #default="{ row }">
-                  <StatusBadge :label="getPayStatusLabel(row.payStatus)" :tone="payStatusTone(row.payStatus)" />
-                </template>
-              </el-table-column>
-              <el-table-column label="发码" width="112">
-                <template #default="{ row }">
-                  <StatusBadge :label="getCodeStatusLabel(row.codeStatus)" :tone="codeStatusTone(row.codeStatus)" />
-                </template>
-              </el-table-column>
-              <el-table-column label="兑换码" min-width="220" show-overflow-tooltip>
-                <template #default="{ row }">
-                  <strong class="code-value">{{ row.code || '-' }}</strong>
-                </template>
-              </el-table-column>
-              <el-table-column label="备注" min-width="150" show-overflow-tooltip>
-                <template #default="{ row }">
-                  <span class="muted-line">{{ row.failReason || '无异常' }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="更新时间" min-width="170">
-                <template #default="{ row }">
-                  <span class="order-inline-cell">{{ formatDisplayDateTime(row.updatedAt) }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </div>
-      </article>
+    <OrderPanel
+      :activity-orders="activityOrders"
+      :order-querying="orderQuerying"
+      :is-authenticated="isAuthenticated"
+      @query-orders="handleQueryOrders()"
+    />
   </div>
   <div class="page-shell" v-else>
     <button
@@ -592,167 +433,11 @@ onBeforeUnmount(() => {
   padding: 0.65rem 0.9rem;
 }
 
-.detail-hero__badges,
-.detail-hero__seckill-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.detail-hero__seckill {
-  display: grid;
-  gap: 0.75rem;
-  padding-top: 1rem;
-}
-
-.detail-hero__seckill-button {
-  justify-self: stretch;
-  min-height: 3.5rem;
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-
-.detail-hero__payment {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-  padding: 1rem;
-  border: 2px solid rgba(17, 24, 39, 0.18);
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.seckill-result__header,
-.payment-panel__header,
-.order-panel__header,
-.order-panel__actions,
-.payment-panel__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.seckill-result__title,
-.payment-panel__title,
-.order-panel__title {
-  margin: 0.25rem 0 0;
-  font-size: 1.35rem;
-}
-
-.seckill-result,
-.seckill-result-table-wrap {
-  min-width: 0;
-}
-
-.seckill-result {
-  display: grid;
-  gap: 1rem;
-  overflow: hidden;
-}
-
-.seckill-result-table-wrap {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-.seckill-result-table {
-  width: 100%;
-}
-
-.seckill-result-table :deep(.el-table__cell) {
-  vertical-align: middle;
-}
-
-.order-panel__empty {
-  color: var(--fg-soft);
-}
-
-.order-panel,
-.order-table-loading,
-.order-table-wrap {
-  min-width: 0;
-}
-
-.order-panel {
-  display: grid;
-  gap: 1rem;
-  overflow: hidden;
-}
-
-.order-panel__heading {
-  min-width: 0;
-}
-
-.order-panel__summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
-}
-
-.order-panel__summary span {
-  border: 1px solid rgba(17, 24, 39, 0.16);
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--fg-soft);
-  font-size: 0.86rem;
-  padding: 0.24rem 0.55rem;
-  white-space: nowrap;
-}
-
-.order-panel__empty {
-  display: grid;
-  min-height: 128px;
-  place-items: center;
-  padding: 0.95rem 1rem;
-  border: 2px dashed rgba(17, 24, 39, 0.4);
-  background: rgba(255, 255, 255, 0.65);
-}
-
-.order-table-wrap {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-.order-table {
-  width: 100%;
-}
-
-.order-table :deep(.el-table__cell) {
-  vertical-align: middle;
-}
-
-.order-inline-cell,
-.order-no,
-.code-value,
-.muted-line {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.muted-line {
-  color: var(--fg-soft);
-}
-
 @media (max-width: 960px) {
   .detail-hero,
-  .detail-grid,
-  .seckill-result__header,
-  .payment-panel__header,
-  .order-panel__header,
-  .order-panel__actions,
-  .payment-panel__actions {
+  .detail-grid {
     grid-template-columns: 1fr;
     display: grid;
-  }
-
-  .detail-hero__seckill-button {
-    justify-self: stretch;
   }
 }
 </style>

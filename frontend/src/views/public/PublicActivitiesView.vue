@@ -4,9 +4,8 @@ import { RouterLink } from 'vue-router'
 import { ArrowRight } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
 import { ApiClientError } from '@/api/request'
-import StatusBadge from '@/components/StatusBadge.vue'
+import ActivityStatusBadges from '@/components/ActivityStatusBadges.vue'
 import { formatDisplayDateTime } from '@/utils/date'
-import { getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
 import type { ActivitySummary } from '@/types'
 
 const loading = ref(false)
@@ -58,16 +57,7 @@ onMounted(async () => {
           </div>
           <ArrowRight :size="22" />
         </div>
-        <div class="public-card__badges">
-          <StatusBadge
-            :label="getPublishStatusLabel(activity.publishStatus)"
-            :tone="activity.publishStatus === 'PUBLISHED' ? 'green' : activity.publishStatus === 'UNPUBLISHED' ? 'amber' : 'slate'"
-          />
-          <StatusBadge
-            :label="getPhaseLabel(activity.phase)"
-            :tone="activity.phase === 'ONGOING' ? 'blue' : activity.phase === 'PREVIEW' ? 'amber' : 'slate'"
-          />
-        </div>
+        <ActivityStatusBadges :publish-status="activity.publishStatus" :phase="activity.phase" />
         <div class="meta-list">
           <div class="meta-row"><span>库存</span><strong>{{ activity.availableStock }} / {{ activity.totalStock }}</strong></div>
           <div class="meta-row"><span>开始时间</span><strong>{{ formatDisplayDateTime(activity.startTime) }}</strong></div>
@@ -126,12 +116,6 @@ onMounted(async () => {
 .public-card__head h2 {
   margin: 0.35rem 0 0;
   font-size: 1.5rem;
-}
-
-.public-card__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 @media (max-width: 960px) {

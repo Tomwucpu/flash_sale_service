@@ -23,7 +23,7 @@ spring:
         - id: flash-sale-user-service
           uri: lb://flash-sale-user-service
           predicates:
-            - Path=/api/users/**
+            - Path=/api/users/**,/api/admin/users/**
         - id: flash-sale-activity-service
           uri: lb://flash-sale-activity-service
           predicates:

@@ -54,6 +54,11 @@ const router = createRouter({
       component: ShellLayout,
       children: [
         {
+          path: 'users',
+          component: () => import('@/views/admin/UserListView.vue'),
+          meta: { title: '用户管理' },
+        },
+        {
           path: 'activities',
           component: () => import('@/views/admin/ActivityListView.vue'),
           meta: { title: '活动管理' },

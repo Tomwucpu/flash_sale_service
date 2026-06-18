@@ -203,3 +203,26 @@ export interface RedeemCodeImportBatchSummary {
 export interface RedeemCodeImportBatchDetail extends RedeemCodeImportBatchSummary {
   failures: RedeemCodeImportFailure[]
 }
+
+export interface UserPageParams {
+  keyword?: string
+  role?: string
+  status?: string
+  page?: number
+  size?: number
+}
+
+export interface UserPageResponse {
+  records: UserProfile[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface UpdateUserStatusPayload {
+  status: 'ENABLED' | 'DISABLED'
+}
+
+export interface UpdateUserRolePayload {
+  role: 'ADMIN' | 'PUBLISHER' | 'USER'
+}

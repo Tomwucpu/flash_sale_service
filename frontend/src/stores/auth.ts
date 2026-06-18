@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken),
+    isAdmin: (state) => state.currentUser?.role === 'ADMIN',
     isAdminLike: (state) =>
       state.currentUser?.role === 'ADMIN' || state.currentUser?.role === 'PUBLISHER',
   },

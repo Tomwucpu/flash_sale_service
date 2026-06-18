@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { House, LogOut, PanelLeft, ShoppingBag, Tickets, UserRound } from 'lucide-vue-next'
+import { House, LogOut, PanelLeft, ShoppingBag, Tickets, UserRound, Users } from 'lucide-vue-next'
 import AppBrand from '@/components/AppBrand.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -22,6 +22,7 @@ const title = computed(() => (isAdmin.value ? '管理员后台' : '用户后台'
 const navItems = computed(() =>
   isAdmin.value
     ? [
+        { to: '/admin/users', icon: Users, label: '用户管理', adminOnly: true },
         { to: '/admin/activities', icon: Tickets, label: '活动管理' },
         { to: '/admin/profile', icon: UserRound, label: '我的' },
       ]
@@ -45,7 +46,7 @@ function handleLogout() {
       </div>
       <nav class="shell__nav">
         <RouterLink
-          v-for="item in navItems"
+          v-for="item in navItems.filter(i => !i.adminOnly || authStore.isAdmin)"
           :key="item.to"
           class="shell__nav-item"
           :to="item.to"

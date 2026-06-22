@@ -140,12 +140,21 @@ public class ActivityService {
         );
     }
 
-    public ActivityPageResponse listPublicActivities(int page, int size) {
+    public ActivityPageResponse listPublicActivities(int page, int size, ActivityPhase phase) {
+        LocalDateTime now = LocalDateTime.now();
         LambdaQueryWrapper<ActivityEntity> query = new LambdaQueryWrapper<ActivityEntity>()
                 .eq(ActivityEntity::getIsDeleted, 0)
-                .eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name())
-                .orderByDesc(ActivityEntity::getStartTime)
-                .orderByDesc(ActivityEntity::getId);
+                .eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name());
+
+        if (phase != null) {
+            switch (phase) {
+                case PREVIEW -> query.gt(ActivityEntity::getStartTime, now);
+                case ONGOING -> query.le(ActivityEntity::getStartTime, now).ge(ActivityEntity::getEndTime, now);
+                case ENDED -> query.lt(ActivityEntity::getEndTime, now);
+            }
+        }
+
+        query.orderByDesc(ActivityEntity::getStartTime).orderByDesc(ActivityEntity::getId);
 
         IPage<ActivityEntity> result = activityMapper.selectPage(new Page<>(page, size), query);
 

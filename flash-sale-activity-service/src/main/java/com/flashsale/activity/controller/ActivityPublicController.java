@@ -1,5 +1,6 @@
 package com.flashsale.activity.controller;
 
+import com.flashsale.activity.domain.ActivityPhase;
 import com.flashsale.activity.service.ActivityService;
 import com.flashsale.activity.dto.response.ActivityDetailResponse;
 import com.flashsale.activity.dto.response.ActivityPageResponse;
@@ -27,9 +28,10 @@ public class ActivityPublicController {
     public ApiResponse<ActivityPageResponse> list(
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer size,
+            @RequestParam(required = false) ActivityPhase phase,
             HttpServletRequest request
     ) {
-        return ApiResponse.success(requestId(request), activityService.listPublicActivities(page, size));
+        return ApiResponse.success(requestId(request), activityService.listPublicActivities(page, size, phase));
     }
 
     @GetMapping("/{activityId}")

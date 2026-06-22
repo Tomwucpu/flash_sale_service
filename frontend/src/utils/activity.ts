@@ -29,7 +29,7 @@ const publishStatusLabelMap: Record<PublishStatus, string> = {
   OFFLINE: '已下线',
 }
 
-const phaseLabelMap: Record<ActivityPhase, string> = {
+export const phaseLabelMap: Record<ActivityPhase, string> = {
   PREVIEW: '预告中',
   ONGOING: '进行中',
   ENDED: '已结束',

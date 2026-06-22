@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowRight } from 'lucide-vue-next'
 import { publicActivityApi } from '@/api/public-activity'
 import { ApiClientError } from '@/api/request'
 import ActivityStatusBadges from '@/components/ActivityStatusBadges.vue'
 import { formatDisplayDateTime } from '@/utils/date'
-import type { ActivitySummary } from '@/types'
+import { phaseLabelMap } from '@/utils/activity'
+import type { ActivityPhase, ActivitySummary } from '@/types'
 
 const loading = ref(false)
 const activities = ref<ActivitySummary[]>([])
@@ -14,14 +15,22 @@ const currentPage = ref(1)
 const pageSize = 9
 const total = ref(0)
 const errorMessage = ref('')
+const activePhase = ref<ActivityPhase | ''>('')
 
 const toneMap = ['blue', 'green', 'amber'] as const
+
+const phaseTabs: Array<{ label: string; value: ActivityPhase | '' }> = [
+  { label: '全部', value: '' },
+  { label: phaseLabelMap.PREVIEW, value: 'PREVIEW' },
+  { label: phaseLabelMap.ONGOING, value: 'ONGOING' },
+  { label: phaseLabelMap.ENDED, value: 'ENDED' },
+]
 
 async function loadActivities(page = 1) {
   loading.value = true
   errorMessage.value = ''
   try {
-    const result = await publicActivityApi.list(page, pageSize)
+    const result = await publicActivityApi.list(page, pageSize, activePhase.value || undefined)
     activities.value = result.records
     currentPage.value = result.page
     total.value = result.total
@@ -36,15 +45,28 @@ function handlePageChange(page: number) {
   loadActivities(page)
 }
 
+function handlePhaseChange(phase: ActivityPhase | '') {
+  activePhase.value = phase
+}
+
+watch(activePhase, () => loadActivities(1))
+
 onMounted(() => loadActivities())
 </script>
 
 <template>
   <div class="page-shell">
-    <section class="page-header page-header--green">
-      <div class="eyebrow">Public Activities</div>
-      <h1 class="poster-title">公开活动列表</h1>
-    </section>
+    <div class="phase-tabs">
+      <button
+        v-for="tab in phaseTabs"
+        :key="tab.value"
+        class="phase-tab"
+        :class="{ 'phase-tab--active': activePhase === tab.value }"
+        @click="handlePhaseChange(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
 
     <section class="public-cards" v-loading="loading">
       <div v-if="errorMessage" class="empty-state public-empty-state">
@@ -90,6 +112,38 @@ onMounted(() => loadActivities())
 </template>
 
 <style scoped>
+.phase-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.phase-tab {
+  padding: 0.5rem 1.25rem;
+  border: 2px solid var(--fg);
+  background: var(--bg);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.phase-tab:hover {
+  background: #e5e7eb;
+}
+
+.phase-tab--active {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.phase-tab--active:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
 .public-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

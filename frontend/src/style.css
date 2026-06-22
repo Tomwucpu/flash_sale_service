@@ -35,6 +35,43 @@ body,
   margin: 0;
 }
 
+/* ── Custom scrollbar: thin, styled, no layout impact ── */
+
+html {
+  overflow-y: scroll;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--fg-soft) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--fg-soft);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--fg);
+}
+
 body {
   background: var(--bg);
   color: var(--fg);

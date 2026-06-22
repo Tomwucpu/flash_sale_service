@@ -1,6 +1,8 @@
 package com.flashsale.activity.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.flashsale.activity.domain.ActivityEntity;
 import com.flashsale.activity.domain.ActivityPhase;
 import com.flashsale.activity.domain.CodeSourceMode;
@@ -11,6 +13,7 @@ import com.flashsale.activity.mapper.ActivityMapper;
 import com.flashsale.activity.mapper.RedeemCodeMapper;
 import com.flashsale.activity.dto.request.ActivityCreateRequest;
 import com.flashsale.activity.dto.response.ActivityDetailResponse;
+import com.flashsale.activity.dto.response.ActivityPageResponse;
 import com.flashsale.activity.dto.response.ActivitySummaryResponse;
 import com.flashsale.activity.dto.request.ActivityUpdateRequest;
 import com.flashsale.common.security.context.UserContext;
@@ -108,29 +111,62 @@ public class ActivityService {
         return toDetailResponse(activity);
     }
 
-    public List<ActivitySummaryResponse> list(UserContext userContext) {
+    public ActivityPageResponse list(UserContext userContext, int page, int size) {
+        if (!isAdmin(userContext) && !isPublisher(userContext)) {
+            throw new ForbiddenException("当前用户无权访问该活动");
+        }
+
+        long totalCount = activityMapper.selectCount(buildBaseListQuery(userContext));
+        long unpublishedCount = activityMapper.selectCount(
+                buildBaseListQuery(userContext).eq(ActivityEntity::getPublishStatus, PublishStatus.UNPUBLISHED.name())
+        );
+        long publishedCount = activityMapper.selectCount(
+                buildBaseListQuery(userContext).eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name())
+        );
+
+        LambdaQueryWrapper<ActivityEntity> query = buildBaseListQuery(userContext)
+                .orderByDesc(ActivityEntity::getId);
+
+        IPage<ActivityEntity> result = activityMapper.selectPage(new Page<>(page, size), query);
+
+        return new ActivityPageResponse(
+                result.getRecords().stream().map(this::toSummaryResponse).toList(),
+                result.getTotal(),
+                page,
+                size,
+                totalCount,
+                unpublishedCount,
+                publishedCount
+        );
+    }
+
+    public ActivityPageResponse listPublicActivities(int page, int size) {
+        LambdaQueryWrapper<ActivityEntity> query = new LambdaQueryWrapper<ActivityEntity>()
+                .eq(ActivityEntity::getIsDeleted, 0)
+                .eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name())
+                .orderByDesc(ActivityEntity::getStartTime)
+                .orderByDesc(ActivityEntity::getId);
+
+        IPage<ActivityEntity> result = activityMapper.selectPage(new Page<>(page, size), query);
+
+        return new ActivityPageResponse(
+                result.getRecords().stream().map(this::toSummaryResponse).toList(),
+                result.getTotal(),
+                page,
+                size,
+                0,
+                0,
+                0
+        );
+    }
+
+    private LambdaQueryWrapper<ActivityEntity> buildBaseListQuery(UserContext userContext) {
         LambdaQueryWrapper<ActivityEntity> query = new LambdaQueryWrapper<ActivityEntity>()
                 .eq(ActivityEntity::getIsDeleted, 0);
         if (isPublisher(userContext)) {
             query.eq(ActivityEntity::getCreatedBy, userContext.userId());
-        } else if (!isAdmin(userContext)) {
-            throw new ForbiddenException("当前用户无权访问该活动");
         }
-        return activityMapper.selectList(query.orderByDesc(ActivityEntity::getId)).stream()
-                .map(this::toSummaryResponse)
-                .toList();
-    }
-
-    public List<ActivitySummaryResponse> listPublicActivities() {
-        return activityMapper.selectList(
-                        new LambdaQueryWrapper<ActivityEntity>()
-                                .eq(ActivityEntity::getIsDeleted, 0)
-                                .eq(ActivityEntity::getPublishStatus, PublishStatus.PUBLISHED.name())
-                                .orderByDesc(ActivityEntity::getStartTime)
-                                .orderByDesc(ActivityEntity::getId)
-                ).stream()
-                .map(this::toSummaryResponse)
-                .toList();
+        return query;
     }
 
     public ActivityDetailResponse getPublicDetail(Long activityId) {

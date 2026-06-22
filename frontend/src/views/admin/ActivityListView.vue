@@ -14,18 +14,30 @@ import type { ActivitySummary } from '@/types'
 const router = useRouter()
 const loading = ref(false)
 const activities = ref<ActivitySummary[]>([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const statsTotal = ref(0)
+const statsUnpublished = ref(0)
+const statsPublished = ref(0)
 
 const summary = computed(() => ({
-  total: activities.value.length,
-  draft: activities.value.filter((item) => item.publishStatus === 'UNPUBLISHED').length,
-  live: activities.value.filter((item) => item.publishStatus === 'PUBLISHED').length,
+  total: statsTotal.value,
+  draft: statsUnpublished.value,
+  live: statsPublished.value,
 }))
 const hasActivities = computed(() => activities.value.length > 0)
 
-async function loadActivities() {
+async function loadActivities(page?: number) {
   loading.value = true
   try {
-    activities.value = await activityApi.list()
+    const result = await activityApi.list(page ?? currentPage.value, pageSize.value)
+    activities.value = result.records
+    currentPage.value = result.page
+    total.value = result.total
+    statsTotal.value = result.totalCount
+    statsUnpublished.value = result.unpublishedCount
+    statsPublished.value = result.publishedCount
   } catch (error) {
     const message = error instanceof ApiClientError ? error.message : '活动列表加载失败'
     ElMessage.error(message)
@@ -69,7 +81,16 @@ async function handleDelete(activityId: number) {
   await loadActivities()
 }
 
-onMounted(loadActivities)
+function handleSizeChange(size: number) {
+  pageSize.value = size
+  loadActivities(1)
+}
+
+function handlePageChange(page: number) {
+  loadActivities(page)
+}
+
+onMounted(() => loadActivities())
 </script>
 
 <template>
@@ -199,6 +220,17 @@ onMounted(loadActivities)
           <strong>当前还没有活动</strong>
         </div>
       </div>
+      <div v-if="total > 0" class="pagination-wrapper">
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </section>
   </div>
 </template>
@@ -262,6 +294,12 @@ onMounted(loadActivities)
 
 .empty-state strong {
   font-size: 1.1rem;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
 }
 
 @media (max-width: 960px) {

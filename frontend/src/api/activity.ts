@@ -1,9 +1,9 @@
 import { http } from '@/api/http'
-import type { ActivityDetail, ActivityFormPayload, ActivitySummary, RedeemCodeImportBatchDetail, RedeemCodeImportBatchSummary } from '@/types'
+import type { ActivityDetail, ActivityFormPayload, ActivityPageResponse, ActivitySummary, RedeemCodeImportBatchDetail, RedeemCodeImportBatchSummary } from '@/types'
 
 export const activityApi = {
-  list() {
-    return http.get<ActivitySummary[]>('/api/activities')
+  list(page = 1, size = 10) {
+    return http.get<ActivityPageResponse>('/api/activities', { params: { page, size } })
   },
   detail(activityId: number) {
     return http.get<ActivityDetail>(`/api/activities/${activityId}`)

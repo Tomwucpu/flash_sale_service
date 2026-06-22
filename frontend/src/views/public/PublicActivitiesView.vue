@@ -10,21 +10,33 @@ import type { ActivitySummary } from '@/types'
 
 const loading = ref(false)
 const activities = ref<ActivitySummary[]>([])
+const currentPage = ref(1)
+const pageSize = 9
+const total = ref(0)
 const errorMessage = ref('')
 
 const toneMap = ['blue', 'green', 'amber'] as const
 
-onMounted(async () => {
+async function loadActivities(page = 1) {
   loading.value = true
   errorMessage.value = ''
   try {
-    activities.value = await publicActivityApi.list()
+    const result = await publicActivityApi.list(page, pageSize)
+    activities.value = result.records
+    currentPage.value = result.page
+    total.value = result.total
   } catch (error) {
     errorMessage.value = error instanceof ApiClientError ? error.message : '活动列表加载失败'
   } finally {
     loading.value = false
   }
-})
+}
+
+function handlePageChange(page: number) {
+  loadActivities(page)
+}
+
+onMounted(() => loadActivities())
 </script>
 
 <template>
@@ -64,6 +76,15 @@ onMounted(async () => {
           <div class="meta-row"><span>结束时间</span><strong>{{ formatDisplayDateTime(activity.endTime) }}</strong></div>
         </div>
       </RouterLink>
+      <div v-if="total > pageSize" class="public-pagination">
+        <el-pagination
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :total="total"
+          layout="prev, pager, next"
+          @current-change="handlePageChange"
+        />
+      </div>
     </section>
   </div>
 </template>
@@ -77,6 +98,13 @@ onMounted(async () => {
 
 .public-empty-state {
   grid-column: 1 / -1;
+}
+
+.public-pagination {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding-top: 1rem;
 }
 
 .public-card {

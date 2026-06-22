@@ -219,6 +219,16 @@ export interface UserPageResponse {
   size: number
 }
 
+export interface ActivityPageResponse {
+  records: ActivitySummary[]
+  total: number
+  page: number
+  size: number
+  totalCount: number
+  unpublishedCount: number
+  publishedCount: number
+}
+
 export interface UpdateUserStatusPayload {
   status: 'ENABLED' | 'DISABLED'
 }

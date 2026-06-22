@@ -4,7 +4,7 @@ import com.flashsale.activity.service.ActivityService;
 import com.flashsale.activity.service.RedeemCodeImportService;
 import com.flashsale.activity.dto.request.ActivityCreateRequest;
 import com.flashsale.activity.dto.response.ActivityDetailResponse;
-import com.flashsale.activity.dto.response.ActivitySummaryResponse;
+import com.flashsale.activity.dto.response.ActivityPageResponse;
 import com.flashsale.activity.dto.request.ActivityUpdateRequest;
 import com.flashsale.activity.dto.response.RedeemCodeImportBatchDetailResponse;
 import com.flashsale.activity.dto.response.RedeemCodeImportBatchSummaryResponse;
@@ -81,8 +81,12 @@ public class ActivityAdminController {
 
     @GetMapping
     @RequireRole({"ADMIN", "PUBLISHER"})
-    public ApiResponse<List<ActivitySummaryResponse>> list(HttpServletRequest httpServletRequest) {
-        return ApiResponse.success(requestId(httpServletRequest), activityService.list(UserContextHolder.get()));
+    public ApiResponse<ActivityPageResponse> list(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer size,
+            HttpServletRequest httpServletRequest
+    ) {
+        return ApiResponse.success(requestId(httpServletRequest), activityService.list(UserContextHolder.get(), page, size));
     }
 
     @PostMapping("/{activityId}/publish")

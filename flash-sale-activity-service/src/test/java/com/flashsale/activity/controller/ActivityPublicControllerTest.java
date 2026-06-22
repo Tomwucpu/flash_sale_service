@@ -50,11 +50,14 @@ class ActivityPublicControllerTest {
         mockMvc.perform(get("/api/public/activities"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].id").value(previewActivityId))
-                .andExpect(jsonPath("$.data[0].phase").value("PREVIEW"))
-                .andExpect(jsonPath("$.data[1].id").value(endedActivityId))
-                .andExpect(jsonPath("$.data[1].phase").value("ENDED"));
+                .andExpect(jsonPath("$.data.records.length()").value(2))
+                .andExpect(jsonPath("$.data.records[0].id").value(previewActivityId))
+                .andExpect(jsonPath("$.data.records[0].phase").value("PREVIEW"))
+                .andExpect(jsonPath("$.data.records[1].id").value(endedActivityId))
+                .andExpect(jsonPath("$.data.records[1].phase").value("ENDED"))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(10));
     }
 
     @Test

@@ -172,8 +172,8 @@ class ActivityAdminControllerTest {
         mockMvc.perform(admin(get("/api/activities")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
-                .andExpect(jsonPath("$.data[0].id").value(activityId))
-                .andExpect(jsonPath("$.data[0].phase").value("PREVIEW"));
+                .andExpect(jsonPath("$.data.records[0].id").value(activityId))
+                .andExpect(jsonPath("$.data.records[0].phase").value("PREVIEW"));
     }
 
     @Test
@@ -186,8 +186,8 @@ class ActivityAdminControllerTest {
         mockMvc.perform(publisher(get("/api/activities"), 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].id").value(ownActivityId));
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(ownActivityId));
     }
 
     @Test
@@ -343,7 +343,7 @@ class ActivityAdminControllerTest {
 
         mockMvc.perform(admin(get("/api/activities")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(0));
+                .andExpect(jsonPath("$.data.records.length()").value(0));
     }
 
     @Test

@@ -9,22 +9,13 @@ import { authApi } from '@/api/auth'
 const router = useRouter()
 
 const loading = ref(false)
-type RegisterRole = 'USER' | 'PUBLISHER'
 
-const form = reactive<{
-  username: string
-  password: string
-  confirmPassword: string
-  nickname: string
-  phone: string
-  role: RegisterRole
-}>({
+const form = reactive({
   username: '',
   password: '',
   confirmPassword: '',
   nickname: '',
   phone: '',
-  role: 'USER',
 })
 
 function normalizeOptional(value: string) {
@@ -58,7 +49,6 @@ async function handleRegister() {
     const profile = await authApi.register({
       username: form.username.trim(),
       password: form.password,
-      role: form.role,
       nickname: normalizeOptional(form.nickname),
       phone: normalizeOptional(form.phone),
     })
@@ -88,8 +78,8 @@ async function handleRegister() {
       <h1 class="poster-title">用户注册</h1>
       <article class="flat-panel flat-panel--green register-page__poster-card">
         <ShieldPlus :size="28" />
-        <strong>注册时可选择 USER 或 PUBLISHER</strong>
-        <span>用户参与抢购，发布者可进入后台发布和管理活动</span>
+        <strong>注册为普通用户</strong>
+        <span>注册后可参与抢购，如需成为发布者可在用户后台提交申请</span>
       </article>
     </section>
 
@@ -101,12 +91,6 @@ async function handleRegister() {
       </div>
 
       <el-form class="register-page__form flat-panel" label-position="top" @submit.prevent="handleRegister">
-        <el-form-item label="账号类型">
-          <el-radio-group v-model="form.role" class="register-page__role-group">
-            <el-radio-button value="USER">普通用户</el-radio-button>
-            <el-radio-button value="PUBLISHER">发布者</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
         <el-form-item label="用户名">
           <el-input v-model="form.username" placeholder="请输入用户名" />
         </el-form-item>

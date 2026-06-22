@@ -59,6 +59,11 @@ const router = createRouter({
           meta: { title: '用户管理' },
         },
         {
+          path: 'publisher-applications',
+          component: () => import('@/views/admin/PublisherApplicationListView.vue'),
+          meta: { title: '发布者申请' },
+        },
+        {
           path: 'activities',
           component: () => import('@/views/admin/ActivityListView.vue'),
           meta: { title: '活动管理' },
@@ -84,6 +89,11 @@ const router = createRouter({
           meta: { title: '编辑活动' },
         },
         {
+          path: 'orders',
+          component: () => import('@/views/user/UserOrderListView.vue'),
+          meta: { title: '我的订单' },
+        },
+        {
           path: 'profile',
           component: () => import('@/views/ProfileView.vue'),
           meta: { title: '我的' },
@@ -102,6 +112,11 @@ const router = createRouter({
           path: 'orders',
           component: () => import('@/views/user/UserOrderListView.vue'),
           meta: { title: '我的订单' },
+        },
+        {
+          path: 'publisher-apply',
+          component: () => import('@/views/user/PublisherApplyView.vue'),
+          meta: { title: '申请发布者' },
         },
         {
           path: 'profile',

@@ -70,7 +70,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    void registerCreatesPublisherWhenRoleIsPublisher() throws Exception {
+    void registerAlwaysCreatesUserRoleRegardlessOfInput() throws Exception {
         String username = uniqueUsername("publisher");
 
         mockMvc.perform(post("/api/users/register")
@@ -86,7 +86,7 @@ class UserAuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.username").value(username))
-                .andExpect(jsonPath("$.data.role").value("PUBLISHER"))
+                .andExpect(jsonPath("$.data.role").value("USER"))
                 .andExpect(jsonPath("$.data.status").value("ENABLED"));
     }
 

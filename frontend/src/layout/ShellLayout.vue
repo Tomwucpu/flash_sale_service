@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { House, LogOut, PanelLeft, ShoppingBag, Tickets, UserRound, Users } from 'lucide-vue-next'
+import { House, LogOut, PanelLeft, ShoppingBag, ShieldCheck, Tickets, UserRound, Users } from 'lucide-vue-next'
 import AppBrand from '@/components/AppBrand.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -23,11 +23,14 @@ const navItems = computed(() =>
   isAdmin.value
     ? [
         { to: '/admin/users', icon: Users, label: '用户管理', adminOnly: true },
+        { to: '/admin/publisher-applications', icon: ShieldCheck, label: '发布者申请', adminOnly: true },
         { to: '/admin/activities', icon: Tickets, label: '活动管理' },
+        { to: '/admin/orders', icon: ShoppingBag, label: '我的订单' },
         { to: '/admin/profile', icon: UserRound, label: '我的' },
       ]
     : [
         { to: '/user/orders', icon: ShoppingBag, label: '我的订单' },
+        { to: '/user/publisher-apply', icon: ShieldCheck, label: '申请发布者', userOnly: true },
         { to: '/user/profile', icon: UserRound, label: '我的' },
       ],
 )
@@ -46,7 +49,11 @@ function handleLogout() {
       </div>
       <nav class="shell__nav">
         <RouterLink
-          v-for="item in navItems.filter(i => !i.adminOnly || authStore.isAdmin)"
+          v-for="item in navItems.filter(i => {
+            if (i.adminOnly && !authStore.isAdmin) return false
+            if (i.userOnly && authStore.isAdminLike) return false
+            return true
+          })"
           :key="item.to"
           class="shell__nav-item"
           :to="item.to"

@@ -3,9 +3,13 @@ package com.flashsale.user.controller;
 import com.flashsale.common.core.api.ApiResponse;
 import com.flashsale.common.security.auth.RequireRole;
 import com.flashsale.common.security.context.UserContextHolder;
+import com.flashsale.user.dto.request.ApplicationPageRequest;
+import com.flashsale.user.dto.request.ApplicationReviewRequest;
 import com.flashsale.user.dto.request.UserPageRequest;
 import com.flashsale.user.dto.request.UserRoleRequest;
 import com.flashsale.user.dto.request.UserStatusRequest;
+import com.flashsale.user.dto.response.ApplicationPageResponse;
+import com.flashsale.user.dto.response.PublisherApplicationResponse;
 import com.flashsale.user.dto.response.UserPageResponse;
 import com.flashsale.user.dto.response.UserProfileResponse;
 import com.flashsale.user.service.UserAdminService;
@@ -68,6 +72,49 @@ public class UserAdminController {
         return ApiResponse.success(
                 requestId(httpServletRequest),
                 userAdminService.updateRole(userId, request.role(), UserContextHolder.get())
+        );
+    }
+
+    @GetMapping("/publisher-applications")
+    @RequireRole({"ADMIN"})
+    public ApiResponse<ApplicationPageResponse> listApplications(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            HttpServletRequest httpServletRequest
+    ) {
+        ApplicationPageRequest request = new ApplicationPageRequest(status, page, size);
+        return ApiResponse.success(
+                requestId(httpServletRequest),
+                userAdminService.listApplications(request)
+        );
+    }
+
+    @PutMapping("/publisher-applications/{applicationId}/approve")
+    @RequireRole({"ADMIN"})
+    public ApiResponse<PublisherApplicationResponse> approveApplication(
+            @PathVariable Long applicationId,
+            @Valid @RequestBody(required = false) ApplicationReviewRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        String reviewNote = request != null ? request.reviewNote() : null;
+        return ApiResponse.success(
+                requestId(httpServletRequest),
+                userAdminService.approveApplication(applicationId, reviewNote, UserContextHolder.get())
+        );
+    }
+
+    @PutMapping("/publisher-applications/{applicationId}/reject")
+    @RequireRole({"ADMIN"})
+    public ApiResponse<PublisherApplicationResponse> rejectApplication(
+            @PathVariable Long applicationId,
+            @Valid @RequestBody(required = false) ApplicationReviewRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        String reviewNote = request != null ? request.reviewNote() : null;
+        return ApiResponse.success(
+                requestId(httpServletRequest),
+                userAdminService.rejectApplication(applicationId, reviewNote, UserContextHolder.get())
         );
     }
 

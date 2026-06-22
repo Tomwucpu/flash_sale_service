@@ -35,7 +35,6 @@ export interface LoginPayload {
 export interface RegisterPayload {
   username: string
   password: string
-  role?: 'PUBLISHER' | 'USER'
   nickname?: string
   phone?: string
 }
@@ -235,4 +234,38 @@ export interface UpdateUserStatusPayload {
 
 export interface UpdateUserRolePayload {
   role: 'ADMIN' | 'PUBLISHER' | 'USER'
+}
+
+export interface PublisherApplication {
+  id: number
+  userId: number
+  username: string
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewNote: string | null
+  reviewerId: number | null
+  reviewerName: string | null
+  reviewedAt: string | null
+  createdAt: string
+}
+
+export interface ApplicationPageParams {
+  status?: string
+  page?: number
+  size?: number
+}
+
+export interface ApplicationPageResponse {
+  records: PublisherApplication[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface PublisherApplicationPayload {
+  reason: string
+}
+
+export interface ApplicationReviewPayload {
+  reviewNote?: string
 }

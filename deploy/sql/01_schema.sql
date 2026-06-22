@@ -185,6 +185,24 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
   KEY `idx_audit_biz_type_key` (`biz_type`, `biz_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='关键操作审计日志表';
 
+CREATE TABLE IF NOT EXISTS `publisher_application` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+  `review_note` VARCHAR(500) DEFAULT NULL,
+  `reviewer_id` BIGINT DEFAULT NULL,
+  `reviewed_at` DATETIME(3) DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `created_by` BIGINT DEFAULT NULL,
+  `updated_by` BIGINT DEFAULT NULL,
+  `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_pa_user_status` (`user_id`, `status`),
+  KEY `idx_pa_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发布者申请表';
+
 CREATE TABLE IF NOT EXISTS `compensation_record` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `biz_type` VARCHAR(32) NOT NULL,

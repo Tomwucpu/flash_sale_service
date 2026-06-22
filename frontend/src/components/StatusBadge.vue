@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   label: string
-  tone?: 'blue' | 'green' | 'amber' | 'slate'
+  tone?: 'blue' | 'green' | 'amber' | 'red' | 'slate'
 }>()
 </script>
 
@@ -34,6 +34,10 @@ const props = defineProps<{
 
 .status-badge--amber {
   background: #fef3c7;
+}
+
+.status-badge--red {
+  background: #fee2e2;
 }
 
 .status-badge--slate {

@@ -206,6 +206,8 @@ onMounted(loadApplication)
 .apply-page__field p {
   margin: 0;
   line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .apply-page__reapply {

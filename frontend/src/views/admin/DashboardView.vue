@@ -282,7 +282,7 @@ defineExpose({
     <section class="page-header page-header--blue dashboard-hero">
       <div class="dashboard-hero__main">
         <div class="eyebrow">Publisher Dashboard</div>
-        <h1 class="dashboard-title">经营看板</h1>
+        <h1 class="dashboard-title">数据看板</h1>
         <p class="dashboard-copy">{{ summaryText }}</p>
         <div class="hero-highlights">
           <span

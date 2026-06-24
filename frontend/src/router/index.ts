@@ -54,6 +54,11 @@ const router = createRouter({
       component: ShellLayout,
       children: [
         {
+          path: 'dashboard',
+          component: () => import('@/views/admin/DashboardView.vue'),
+          meta: { title: '数据看板' },
+        },
+        {
           path: 'users',
           component: () => import('@/views/admin/UserListView.vue'),
           meta: { title: '用户管理' },

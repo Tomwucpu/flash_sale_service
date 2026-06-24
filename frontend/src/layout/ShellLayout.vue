@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { House, LogOut, PanelLeft, ShoppingBag, ShieldCheck, Tickets, UserRound, Users } from 'lucide-vue-next'
+import { BarChart3, House, LogOut, PanelLeft, ShoppingBag, ShieldCheck, Tickets, UserRound, Users } from 'lucide-vue-next'
 import AppBrand from '@/components/AppBrand.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+
+type NavItem = {
+  to: string
+  icon: unknown
+  label: string
+  adminOnly?: boolean
+  userOnly?: boolean
+}
 
 const router = useRouter()
 const route = useRoute()
@@ -12,16 +20,14 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 
 const isAdmin = computed(() => route.path.startsWith('/admin'))
-
 const userLabel = computed(() => authStore.currentUser?.nickname || authStore.currentUser?.username || '未登录')
-
 const eyebrow = computed(() => (isAdmin.value ? 'Control Surface' : 'User Workspace'))
+const title = computed(() => (isAdmin.value ? '管理后台' : '用户后台'))
 
-const title = computed(() => (isAdmin.value ? '管理员后台' : '用户后台'))
-
-const navItems = computed(() =>
+const navItems = computed<NavItem[]>(() =>
   isAdmin.value
     ? [
+        { to: '/admin/dashboard', icon: BarChart3, label: '数据看板' },
         { to: '/admin/users', icon: Users, label: '用户管理', adminOnly: true },
         { to: '/admin/publisher-applications', icon: ShieldCheck, label: '发布者申请', adminOnly: true },
         { to: '/admin/activities', icon: Tickets, label: '活动管理' },
@@ -49,9 +55,9 @@ function handleLogout() {
       </div>
       <nav class="shell__nav">
         <RouterLink
-          v-for="item in navItems.filter(i => {
-            if (i.adminOnly && !authStore.isAdmin) return false
-            if (i.userOnly && authStore.isAdminLike) return false
+          v-for="item in navItems.filter((navItem) => {
+            if (navItem.adminOnly && !authStore.isAdmin) return false
+            if (navItem.userOnly && authStore.isAdminLike) return false
             return true
           })"
           :key="item.to"

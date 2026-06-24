@@ -1,5 +1,5 @@
 import { http } from '@/api/http'
-import type { ActivityDetail, ActivityFormPayload, ActivityPageResponse, ActivitySummary, RedeemCodeImportBatchDetail, RedeemCodeImportBatchSummary } from '@/types'
+import type { ActivityDetail, ActivityFormPayload, ActivityPageResponse, RedeemCodeImportBatchDetail, RedeemCodeImportBatchSummary } from '@/types'
 
 export const activityApi = {
   list(page = 1, size = 10) {

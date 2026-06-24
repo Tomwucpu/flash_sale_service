@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import StatusBadge from '@/components/StatusBadge.vue'
 import { getPhaseLabel, getPublishStatusLabel } from '@/utils/activity'
+import type { ActivityPhase, PublishStatus } from '@/types'
 
 defineProps<{
-  publishStatus: string
-  phase: string
+  publishStatus: PublishStatus
+  phase: ActivityPhase
 }>()
 
-function publishStatusTone(status: string): 'blue' | 'green' | 'amber' | 'slate' {
+function publishStatusTone(status: PublishStatus): 'blue' | 'green' | 'amber' | 'slate' {
   if (status === 'PUBLISHED') return 'green'
   if (status === 'UNPUBLISHED') return 'amber'
   return 'slate'
 }
 
-function phaseTone(phase: string): 'blue' | 'green' | 'amber' | 'slate' {
+function phaseTone(phase: ActivityPhase): 'blue' | 'green' | 'amber' | 'slate' {
   if (phase === 'ONGOING') return 'blue'
   if (phase === 'PREVIEW') return 'amber'
   return 'slate'

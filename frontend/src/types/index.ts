@@ -269,3 +269,64 @@ export interface PublisherApplicationPayload {
 export interface ApplicationReviewPayload {
   reviewNote?: string
 }
+
+export type DashboardGranularity = 'day' | 'week' | 'month'
+
+export interface DashboardSummary {
+  revenue: number
+  revenueChangeRate: number
+  avgOrderValue: number
+  totalOrders: number
+  totalOrdersChangeRate: number
+  paidOrders: number
+  paidOrdersChangeRate: number
+  paidOrderRate: number
+  inventoryConsumed: number
+  inventoryTotal: number
+  inventoryConsumptionRate: number
+  highConsumptionActivityCount: number
+  pendingCompensations: number
+}
+
+export interface DashboardTrendBucket {
+  label: string
+  startDate: string
+  endDate: string
+  revenue: number
+  totalOrders: number
+  paidOrders: number
+  inventoryConsumptionRate: number
+}
+
+export interface DashboardTrend {
+  granularity: DashboardGranularity
+  periodLabel: string
+  buckets: DashboardTrendBucket[]
+}
+
+export interface DashboardActivityPerformanceItem {
+  activityId: number
+  title: string
+  phase: string
+  revenue: number
+  revenueChangeRate: number
+  totalOrders: number
+  totalOrdersChangeRate: number
+  paidOrders: number
+  paidOrderRate: number
+  inventoryConsumptionRate: number
+}
+
+export interface DashboardInsights {
+  highConsumptionCount: number
+  mediumConsumptionCount: number
+  lowConsumptionCount: number
+  messages: string[]
+}
+
+export interface PublisherDashboard {
+  summary: DashboardSummary
+  trend: DashboardTrend
+  activityPerformance: DashboardActivityPerformanceItem[]
+  insights: DashboardInsights
+}
